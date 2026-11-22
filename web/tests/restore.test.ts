@@ -94,6 +94,24 @@ describe("restore routes", () => {
 		expect(Buffer.from(result.data).equals(Buffer.from(noisy.data))).toBe(true);
 	});
 
+	it("sends a smeared image through the deblocker at 1x without loading an upscaler", async () => {
+		const deblockOnly: RestoreDeps = {
+			...deps,
+			loadModel: async (role): Promise<LoadedModel> => {
+				if (role !== "deblock") throw new Error(`${role} must not load at 1x`);
+				return { model: models.deblock, backend: "wasm" };
+			},
+		};
+		const result = await restore(
+			cv,
+			noisy,
+			report(null),
+			{ scale: 1, damage: "smeared", content: "photo" },
+			deblockOnly,
+		);
+		expect([result.width, result.height]).toEqual([noisy.width, noisy.height]);
+	});
+
 	it("resizes an x4 upscaler to the requested 2x and keeps a flat colour flat", async () => {
 		const flat = rgba(30, 20, () => [40, 120, 200, 255]);
 		const result = await restore(

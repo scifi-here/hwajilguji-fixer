@@ -122,20 +122,16 @@ async function route(
 	deps: RestoreDeps,
 ) {
 	switch (choice.damage) {
-		case "blocky8": {
-			const deblocked = await deblock(
-				cv,
-				image,
-				report.gridOffset ?? [0, 0],
-				deps,
-			);
+		case "blocky8":
+		case "smeared": {
+			const offset = choice.damage === "blocky8" ? report.gridOffset : null;
+			const deblocked = await deblock(cv, image, offset ?? [0, 0], deps);
 			return choice.scale === 1
 				? deblocked
 				: upscale(cv, deblocked, choice, deps);
 		}
 		case "palette":
 			return upscale(cv, depalette(cv, image), choice, deps);
-		case "smeared":
 		case "clean":
 			return upscale(cv, image, choice, deps);
 	}

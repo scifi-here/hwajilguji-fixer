@@ -97,7 +97,7 @@ def restore(case: Case, image: Rgb, sessions: Sessions) -> tuple[str, Rgb]:
                 sessions.deblock, image, case.grid_offset or (0, 0)
             )
         case "smeared":
-            return "upscalePhoto", upscale_at_1x(sessions.upscale, image)
+            return "deblock", deblock(sessions.deblock, image, (0, 0))
         case "palette":
             smoothed = np.asarray(cv2.bilateralFilter(image, 5, 35, 5), dtype=np.uint8)
             return "depalette+upscalePhoto", upscale_at_1x(sessions.upscale, smoothed)
