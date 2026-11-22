@@ -57,7 +57,7 @@ The evaluation ran at 1x on the first 8 of 24 Kodak images, on a CPU. The gain i
 
 For WebP, AVIF, HEIC, and GIF, the general upscaler lowers PSNR at 1x. The app does not promise a measurable gain for those formats. PSNR does not measure sharpness, so the images can still look cleaner.
 
-The damage gate separates JPEG-blocky images from all other images with 96.9% accuracy on the test fixtures and 93.5% on the full 384-image corpus.
+The damage gate names the right damage class for 31 of 32 test fixtures (96.9%) and 359 of 384 corpus images (93.5%). On the corpus, 16 smeared images read as blocky, 7 blocky images read as smeared, and 2 clean images read as blocky. Both numbers come from running `inspect` on the images: the fixtures that `web/tests/gate.test.ts` reads (the test requires at least 90%), and every image that `hwajilguji-tools corpus` writes plus the 24 originals. Use the damage override in the page when the gate is wrong.
 
 ## Run locally
 
