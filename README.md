@@ -50,7 +50,7 @@ The evaluation ran at 1x on the first 8 of 24 Kodak images, on a CPU. The gain i
 | JPEG | quality 90 | +1.98 | 0.967 to 0.977 |
 | JPEG, three saves | quality 30 | +2.58 | 0.864 to 0.906 |
 | WebP | quality 10, 30, 50 | -0.57, -1.55, -2.56 | 0.814 to 0.807, 0.882 to 0.863, 0.914 to 0.889 |
-| AVIF | quality 20, 40 | -0.71, -1.63 | 0.775 to 0.770, 0.876 to 0.854 |
+| AVIF | quality 20, 40 | -0.71, -1.63 | 0.775 to 0.770, 0.875 to 0.854 |
 | HEIC | quality 20, 40 | -0.74, -3.32 | 0.791 to 0.788, 0.931 to 0.901 |
 | GIF | 256 colours, dithered | -2.93 | 0.938 to 0.899 |
 | GIF | 64 colours, no dither | -2.60 | 0.940 to 0.885 |
