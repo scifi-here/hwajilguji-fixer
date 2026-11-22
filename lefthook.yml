@@ -6,12 +6,12 @@ pre-commit:
     web-check:
       run: pnpm --dir web check
     web-test:
-      run: pnpm --dir web test --passWithNoTests
+      run: pnpm --dir web test
     ruff-check:
       run: uv run --frozen --project tools ruff check tools
     ruff-format:
       run: uv run --frozen --project tools ruff format --check tools
     pyright:
-      run: uv run --frozen --project tools pyright tools
+      run: uv run --frozen --project tools pyright -p tools
     pytest:
-      run: uv run --frozen --project tools pytest tools || test $? -eq 5
+      run: uv run --frozen --project tools pytest tools
