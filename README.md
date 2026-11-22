@@ -33,13 +33,35 @@ Output: PNG only. Saving as JPEG or WebP again would add the damage this tool re
 
 - Animated GIF and animated WebP: only the first frame is processed.
 - Size caps: an input image may have at most 8,000,000 pixels. An output image may have at most 32,000,000 pixels. The app disables a scale that would go over the output cap.
-- No published model repairs JPEG, WebP, AVIF, HEIC, and GIF damage together. JPEG blocks have a dedicated model. The other formats use a general-purpose upscaling model. No published accuracy numbers exist for those formats. The measured numbers from this project's own test corpus are listed below once the evaluation has run.
+- No published model repairs JPEG, WebP, AVIF, HEIC, and GIF damage together. JPEG blocks have a dedicated model. The other formats use a general-purpose upscaling model. The table below lists what this project measured.
 - The browser must be able to decode the format. If it cannot, the app says so.
 - Without WebGPU the app falls back to single-thread WebAssembly. It still works, but it is slower.
 
+### Measured quality
+
+The evaluation ran at 1x on the first 8 of 24 Kodak images, on a CPU. The gain is the PSNR of the output minus the PSNR of the damaged input, both against the clean original. A positive gain means the app improved the image. The evaluation does not run the colour-match finish step.
+
+| Damage | Setting | PSNR gain (dB) | SSIM, input to output |
+|---|---|---|---|
+| JPEG | quality 10 | +2.70 | 0.745 to 0.816 |
+| JPEG | quality 20 | +2.61 | 0.828 to 0.879 |
+| JPEG | quality 30 | +2.62 | 0.865 to 0.907 |
+| JPEG | quality 40 | +2.62 | 0.886 to 0.922 |
+| JPEG | quality 90 | +1.98 | 0.967 to 0.977 |
+| JPEG, three saves | quality 30 | +2.58 | 0.864 to 0.906 |
+| WebP | quality 10, 30, 50 | -0.57, -1.55, -2.56 | 0.814 to 0.807, 0.882 to 0.863, 0.914 to 0.889 |
+| AVIF | quality 20, 40 | -0.71, -1.63 | 0.775 to 0.770, 0.876 to 0.854 |
+| HEIC | quality 20, 40 | -0.74, -3.32 | 0.791 to 0.788, 0.931 to 0.901 |
+| GIF | 256 colours, dithered | -2.93 | 0.938 to 0.899 |
+| GIF | 64 colours, no dither | -2.60 | 0.940 to 0.885 |
+
+For WebP, AVIF, HEIC, and GIF, the general upscaler lowers PSNR at 1x. The app does not promise a measurable gain for those formats. PSNR does not measure sharpness, so the images can still look cleaner.
+
+The damage gate separates JPEG-blocky images from all other images with 96.9% accuracy on the test fixtures and 93.5% on the full 384-image corpus.
+
 ## Run locally
 
-Prerequisites: Node 26.13.1, pnpm 12.21.0, uv, and `gh` logged in. An NVIDIA GPU speeds up the Python evaluation but is not required.
+Prerequisites: Node 26.13.1, pnpm 12.21.0, and uv 0.13.9 or newer (uv installs Python 3.14.10). The `corpus` and `export` commands download the Kodak images and the model weights, so they need network access. An NVIDIA GPU speeds up the Python evaluation but is not required. The Python tools run only through uv.
 
 ```sh
 pnpm install --frozen-lockfile
