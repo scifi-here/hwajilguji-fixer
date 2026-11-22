@@ -13,13 +13,9 @@ def write_clean(tmp_path: Path) -> Path:
 
 
 @pytest.mark.parametrize("codec", ["avif", "webp"])
-def test_degrade_refuses_to_build_without_a_pillow_codec(
+def test_degrade_raises_for_a_missing_pillow_codec_instead_of_skipping_its_rows(
     codec: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Property: a missing encoder stops the corpus before any file is written.
-
-    Fault caught: the codec is skipped silently and the corpus lacks its rows.
-    """
     available = features.check
 
     def check_without_codec(name: str) -> bool | None:
@@ -34,13 +30,9 @@ def test_degrade_refuses_to_build_without_a_pillow_codec(
     assert not out.exists() or not any(out.iterdir())
 
 
-def test_degrade_refuses_to_build_without_the_heif_encoder(
+def test_degrade_raises_for_a_missing_heif_saver_that_the_pillow_flags_hide(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Property: losing the pillow-heif save handler stops the corpus.
-
-    Fault caught: HEIC rows vanish because only the Pillow feature flags are checked.
-    """
     monkeypatch.delitem(Image.SAVE, "HEIF")
     out = tmp_path / "out"
 

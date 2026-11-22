@@ -11,6 +11,9 @@ from hwajilguji_tools.export import export_upscaler
 from hwajilguji_tools.srvgg import SRVGGNetCompact
 
 
+RESIDUAL_MIN_STD = 0.05
+
+
 def randomized(num_conv: int) -> SRVGGNetCompact:
     generator = torch.Generator().manual_seed(num_conv)
     network = SRVGGNetCompact(num_conv=num_conv).eval()
@@ -28,14 +31,9 @@ def randomized(num_conv: int) -> SRVGGNetCompact:
 
 
 @pytest.mark.parametrize("num_conv", [32, 16])
-def test_exported_upscaler_matches_pytorch_at_two_sizes(
+def test_exported_upscaler_keeps_dynamic_size_and_pixel_shuffle_order(
     num_conv: int, tmp_path: Path
 ) -> None:
-    """Property: the ONNX file computes the PyTorch network at any height and width.
-
-    Fault caught: the exporter freezes the traced size (96x80 is rejected or misshaped)
-    or reorders PixelShuffle channels (the learned residual lands on the wrong pixels).
-    """
     network = randomized(num_conv)
     path = tmp_path / "upscaler.onnx"
     export_upscaler(network, path)
@@ -49,7 +47,7 @@ def test_exported_upscaler_matches_pytorch_at_two_sizes(
         residual = expected - functional.interpolate(
             image, scale_factor=4, mode="nearest"
         )
-        assert residual.std().item() > 0.05
+        assert residual.std().item() > RESIDUAL_MIN_STD
 
         (actual,) = session.run(None, {"input": image.numpy()})
 
