@@ -8,15 +8,12 @@ export type LoadedModel = {
 	readonly backend: Backend;
 };
 
-type ElementType = "float32" | "float16";
-
 type ModelEntry = {
 	readonly file: string;
 	readonly sha256: string;
 	readonly bytes: number;
 	readonly inputName: string;
 	readonly outputName: string;
-	readonly elementType: ElementType;
 	readonly scale: number;
 	readonly multipleOf: number;
 	readonly range: readonly [number, number];
@@ -27,14 +24,6 @@ export class ModelIntegrityError extends Error {
 
 	constructor(readonly role: ModelRole) {
 		super(`${role} 모델 파일이 models.json의 SHA-256과 다릅니다.`);
-	}
-}
-
-export class UnsupportedBrowserError extends Error {
-	override readonly name = "UnsupportedBrowserError";
-
-	constructor(readonly feature: string) {
-		super(`이 브라우저는 ${feature}을(를) 지원하지 않습니다.`);
 	}
 }
 
@@ -64,9 +53,8 @@ function parseEntry(manifest: unknown, role: ModelRole): ModelEntry {
 		}
 		return value;
 	};
-	const elementType = fields.get("elementType");
-	if (elementType !== "float32" && elementType !== "float16")
-		throw new Error(`models.json ${role}.elementType`);
+	if (fields.get("elementType") !== "float32")
+		throw new Error(`models.json ${role}.elementType is not float32`);
 	if (fields.get("layout") !== "NCHW-RGB")
 		throw new Error(`models.json ${role}.layout is not NCHW-RGB`);
 	const range = fields.get("range");
@@ -85,7 +73,6 @@ function parseEntry(manifest: unknown, role: ModelRole): ModelEntry {
 		bytes: positive("bytes"),
 		inputName: text("inputName"),
 		outputName: text("outputName"),
-		elementType,
 		scale: positive("scale"),
 		multipleOf: positive("multipleOf"),
 		range: [low, high],
@@ -140,43 +127,23 @@ async function createSession(
 function toTensor(tile: RgbImage, entry: ModelEntry): ort.Tensor {
 	const plane = tile.width * tile.height;
 	const [low, high] = entry.range;
-	const values =
-		entry.elementType === "float16"
-			? new Float16Array(3 * plane)
-			: new Float32Array(3 * plane);
+	const values = new Float32Array(3 * plane);
 	for (let pixel = 0; pixel < plane; pixel++) {
 		for (let channel = 0; channel < 3; channel++) {
 			values[channel * plane + pixel] =
 				low + (tile.data[pixel * 3 + channel] / 255) * (high - low);
 		}
 	}
-	const dims = [1, 3, tile.height, tile.width];
-	if (values instanceof Float32Array)
-		return new ort.Tensor("float32", values, dims);
-	return new ort.Tensor("float16", new Uint16Array(values.buffer), dims);
-}
-
-function outputPlanes(
-	output: ort.Tensor,
-	entry: ModelEntry,
-): Float32Array | Float16Array {
-	const raw = output.data;
-	if (entry.elementType === "float32" && raw instanceof Float32Array)
-		return raw;
-	if (
-		entry.elementType === "float16" &&
-		(raw instanceof Uint16Array || raw instanceof Float16Array)
-	) {
-		return new Float16Array(raw.buffer, raw.byteOffset, raw.length);
-	}
-	throw new Error(`model output is not ${entry.elementType}`);
+	return new ort.Tensor("float32", values, [1, 3, tile.height, tile.width]);
 }
 
 function fromTensor(output: ort.Tensor, entry: ModelEntry): RgbImage {
 	const [batch, channels, height, width] = output.dims;
 	if (output.dims.length !== 4 || batch !== 1 || channels !== 3)
 		throw new Error(`model output dims ${output.dims.join("x")}`);
-	const planes = outputPlanes(output, entry);
+	const planes = output.data;
+	if (!(planes instanceof Float32Array))
+		throw new Error("model output is not float32");
 	const plane = width * height;
 	const [low, high] = entry.range;
 	const data = new Uint8ClampedArray(3 * plane);
@@ -225,8 +192,6 @@ async function load(
 		await fetchOk(new URL("models/models.json", assetBase))
 	).json();
 	const entry = parseEntry(manifest, role);
-	if (entry.elementType === "float16" && !("Float16Array" in globalThis))
-		throw new UnsupportedBrowserError("float16");
 	const bytes = await verifiedModelBytes(entry, role, assetBase);
 	const [session, used] = await createSession(bytes, backend);
 	return { model: tileModel(session, entry), backend: used };
