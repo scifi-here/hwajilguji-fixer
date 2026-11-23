@@ -1,0 +1,40 @@
+[project]
+name = "hwajilguji-tools"
+version = "0.1.0"
+description = "Model export and quality evaluation for the 화질구지 restorer"
+authors = [
+    { name = "metaphorics", email = "152830360+metaphorics@users.noreply.github.com" }
+]
+requires-python = ">=3.14.10,<3.15"
+dependencies = [
+    "numpy>=2.5.5",
+    "onnx==1.23.2",
+    "onnxruntime-gpu==1.32.0",
+    "onnxscript==0.7.2",
+    "opencv-python-headless==5.1.0.95",
+    "pillow==13.0.0",
+    "pillow-heif==1.8.1",
+    "scikit-image>=0.26.0",
+    "torch==2.15.0",
+]
+
+[project.scripts]
+hwajilguji-tools = "hwajilguji_tools.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.13.9,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.pyright]
+typeCheckingMode = "strict"
+include = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "UP", "SIM", "PTH", "RUF"]
+
+[dependency-groups]
+dev = [
+    "pyright==1.1.414",
+    "pytest==9.2.0",
+    "ruff==0.17.6",
+]

@@ -1,0 +1,53 @@
+:root {
+	--color-canvas: #f4f3f0;
+	--color-surface: #ffffff;
+	--color-ink: #1c1c1a;
+	--color-muted: #6b6a66;
+	--color-line: #dddbd5;
+	--color-accent: #1f5fbf;
+	--color-accent-ink: #ffffff;
+	--color-danger: #b3261e;
+	--color-stage: #e6e4df;
+
+	--space-1: 4px;
+	--space-2: 8px;
+	--space-3: 12px;
+	--space-4: 16px;
+	--space-5: 24px;
+	--space-6: 32px;
+	--space-7: 48px;
+	--space-8: 64px;
+
+	--radius-s: 4px;
+	--radius-m: 8px;
+
+	--font-body: "Pretendard Variable", Pretendard, sans-serif;
+	--text-s: 13px;
+	--text-m: 15px;
+	--text-l: 20px;
+
+	color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	background: var(--color-canvas);
+	color: var(--color-ink);
+	font-family: var(--font-body);
+	font-size: var(--text-m);
+	line-height: 1.5;
+	font-feature-settings: "tnum";
+}
+
+button,
+input,
+select {
+	font: inherit;
+	color: inherit;
+}

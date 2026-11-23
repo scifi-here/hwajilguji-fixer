@@ -1,0 +1,53 @@
+{
+  "deblock": {
+    "file": "dejpeg-v2.onnx",
+    "sha256": "cc345b6ce3a4b70856358911fed69ccebe939c1381aa94d969f15e2d81394690",
+    "bytes": 15376612,
+    "inputName": "input",
+    "outputName": "output",
+    "elementType": "float32",
+    "scale": 1,
+    "multipleOf": 16,
+    "license": "Apache-2.0",
+    "source": "https://github.com/Miosp/dejpeg/releases/download/v2.0.0/dejpeg-v2.onnx",
+    "range": [
+      0,
+      1
+    ],
+    "layout": "NCHW-RGB"
+  },
+  "upscalePhoto": {
+    "file": "realesr-general-x4v3.onnx",
+    "sha256": "0fcdcac66c5f27b730e9fa57c49a504fa91f9bd5360b1319d9fab3ac53999711",
+    "bytes": 4949877,
+    "inputName": "input",
+    "outputName": "output",
+    "elementType": "float32",
+    "scale": 4,
+    "multipleOf": 1,
+    "license": "BSD-3-Clause",
+    "source": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-x4v3.pth",
+    "range": [
+      0,
+      1
+    ],
+    "layout": "NCHW-RGB"
+  },
+  "upscaleGraphic": {
+    "file": "realesr-animevideov3.onnx",
+    "sha256": "fcae8b5ea320fb53c2d896c6b87c51f14fe20b38e241d0625b3662e8b8ca225d",
+    "bytes": 2537781,
+    "inputName": "input",
+    "outputName": "output",
+    "elementType": "float32",
+    "scale": 4,
+    "multipleOf": 1,
+    "license": "BSD-3-Clause",
+    "source": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-animevideov3.pth",
+    "range": [
+      0,
+      1
+    ],
+    "layout": "NCHW-RGB"
+  }
+}
