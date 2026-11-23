@@ -82,6 +82,10 @@ uv run --project tools hwajilguji-tools fixtures     # test fixtures for the web
 
 The full specification is in [`docs/spec.md`](docs/spec.md).
 
+## Deploy on Render
+
+The app is a static site, so it needs no server. `render.yaml` describes the site as a Render Blueprint. In the Render Dashboard, click **New > Blueprint** and select this repository. Render builds with the Node version in `.node-version` and the pnpm version in `package.json`, then publishes `web/build`. Each commit to the linked branch triggers a deploy.
+
 ## Third-party models and licenses
 
 | Role | File | Source | License |
