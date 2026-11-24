@@ -6,7 +6,9 @@ import type { Backend, LoadedModel, ModelRole } from "./session.ts";
 import { type RgbImage, runTiled, type TileModel } from "./tiles.ts";
 
 export type Scale = 1 | 2 | 4;
+export type RestoreMode = "restore" | "upscaleOnly";
 export type RestoreChoice = {
+	readonly mode: RestoreMode;
 	readonly scale: Scale;
 	readonly damage: DamageClass;
 	readonly content: ContentKind;
@@ -87,9 +89,12 @@ async function upscale(
 	image: RgbImage,
 	choice: RestoreChoice,
 	deps: RestoreDeps,
+	graphicModel:
+		| "upscaleGraphic"
+		| "upscaleGraphicBackProjection" = "upscaleGraphic",
 ): Promise<RgbImage> {
 	const loaded = await deps.loadModel(
-		choice.content === "graphic" ? "upscaleGraphic" : "upscalePhoto",
+		choice.content === "photo" ? "upscalePhoto" : graphicModel,
 	);
 	if (loaded.model.scale < choice.scale)
 		throw new Error(
@@ -188,6 +193,13 @@ export async function restore(
 ): Promise<RgbaImage> {
 	if (choice.damage === "clean" && choice.scale === 1) return image;
 	const input = dropAlpha(image);
-	const routed = await route(cv, input, report, choice, deps);
-	return attachAlpha(cv, finish(cv, routed, input, choice.damage), image);
+	const upscaleOnly = choice.scale > 1 && choice.mode === "upscaleOnly";
+	const routed = upscaleOnly
+		? await upscale(cv, input, choice, deps, "upscaleGraphicBackProjection")
+		: await route(cv, input, report, choice, deps);
+	return attachAlpha(
+		cv,
+		finish(cv, routed, input, upscaleOnly ? "clean" : choice.damage),
+		image,
+	);
 }

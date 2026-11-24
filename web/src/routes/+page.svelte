@@ -6,7 +6,7 @@ import type {
 	GateReport,
 } from "#lib/pipeline/gate.ts";
 import { MAX_OUTPUT_PIXELS } from "#lib/pipeline/limits.ts";
-import type { Scale } from "#lib/pipeline/restore.ts";
+import type { RestoreMode, Scale } from "#lib/pipeline/restore.ts";
 import type { Backend } from "#lib/pipeline/session.ts";
 import type { Format } from "#lib/pipeline/sniff.ts";
 import type { WorkerRequest, WorkerResponse } from "#lib/pipeline/worker.ts";
@@ -59,6 +59,9 @@ let phase = $state<Phase>("empty");
 let stem = $state("image");
 let inspection = $state.raw<Inspection | null>(null);
 let scale = $state<Scale>(2);
+let mode = $state<RestoreMode>("restore");
+const upscaleOnly = $derived(scale > 1 && mode === "upscaleOnly");
+const actionLabel = $derived(upscaleOnly ? "확대" : "복원");
 let damageChoice = $state<DamageClass | "auto">("auto");
 let contentChoice = $state<ContentKind | "auto">("auto");
 let progress = $state({ done: 0, total: 0 });
@@ -69,13 +72,13 @@ let resultSize = $state(0);
 let startTime = 0;
 
 $effect(() => {
-    if (phase !== "running") return;
+	if (phase !== "running") return;
 
-    const timer = setInterval(() => {
-        elapsedTime = (performance.now() - startTime) / 1000;
-    }, 100);
+	const timer = setInterval(() => {
+		elapsedTime = (performance.now() - startTime) / 1000;
+	}, 100);
 
-    return () => clearInterval(timer);
+	return () => clearInterval(timer);
 });
 let failure = $state<string | null>(null);
 let resultUrl = $state<string | null>(null);
@@ -86,6 +89,13 @@ let beforeCanvas = $state<HTMLCanvasElement>();
 let afterCanvas = $state<HTMLCanvasElement>();
 
 const busy = $derived(phase === "inspecting" || phase === "running");
+
+function invalidateResult(): void {
+	if (phase === "done") {
+		clearResult();
+		phase = "ready";
+	}
+}
 
 function fits(candidate: Scale): boolean {
 	return (
@@ -125,21 +135,22 @@ function openFirst(files: FileList | null | undefined): void {
 	});
 }
 async function loadExample(filename: string): Promise<void> {
-    try {
-        const response = await fetch(`/examples/${filename}`);
-        if (!response.ok) throw new Error("예시 이미지를 불러올 수 없습니다.");
-        const blob = await response.blob();
-        const file = new File([blob], filename, { type: "image/jpeg" });
-        await open(file);
-    } catch (error) {
-        failure = error instanceof Error ? error.message : String(error);
-        phase = "empty";
-    }
+	try {
+		const response = await fetch(`/examples/${filename}`);
+		if (!response.ok) throw new Error("예시 이미지를 불러올 수 없습니다.");
+		const blob = await response.blob();
+		const file = new File([blob], filename, { type: "image/jpeg" });
+		await open(file);
+	} catch (error) {
+		failure = error instanceof Error ? error.message : String(error);
+		phase = "empty";
+	}
 }
 async function showInspection(next: Inspection): Promise<void> {
 	inspection = next;
 	scale =
 		SCALES.filter((candidate) => candidate <= 2 && fits(candidate)).at(-1) ?? 1;
+	mode = "restore";
 	damageChoice = "auto";
 	contentChoice = "auto";
 	phase = "ready";
@@ -152,14 +163,14 @@ async function showInspection(next: Inspection): Promise<void> {
 
 async function showResult(png: Blob, backend: Backend): Promise<void> {
 	clearResult();
-elapsedTime = (performance.now() - startTime) / 1000;
+	elapsedTime = (performance.now() - startTime) / 1000;
 	usedBackend = backend;
 	resultUrl = URL.createObjectURL(png);
 	phase = "done";
 	const bitmap = await createImageBitmap(png);
-resultWidth = bitmap.width;
-resultHeight = bitmap.height;
-resultSize = png.size;
+	resultWidth = bitmap.width;
+	resultHeight = bitmap.height;
+	resultSize = png.size;
 	await tick();
 	if (afterCanvas === undefined) return;
 	afterCanvas.width = bitmap.width;
@@ -198,12 +209,13 @@ function run(): void {
 	if (inspection === null) return;
 	failure = null;
 	clearResult();
-elapsedTime = 0;
-startTime = performance.now();
+	elapsedTime = 0;
+	startTime = performance.now();
 	phase = "running";
 	send({
 		type: "restore",
 		choice: {
+			mode: upscaleOnly ? "upscaleOnly" : "restore",
 			scale,
 			damage: damageChoice === "auto" ? inspection.report.damage : damageChoice,
 			content:
@@ -250,7 +262,7 @@ onMount(() => {
 	</header>
 
 	<div class="layout">
-		<section class="panel" aria-label="입력과 설정">
+		<section class="panel" aria-label="입력과 설정" onchange={invalidateResult}>
 			<label
 				class="drop"
 				class:dragging
@@ -338,7 +350,27 @@ onMount(() => {
 					</div>
 				</fieldset>
 
-				<fieldset>
+				{#if scale > 1}
+					<fieldset>
+						<legend>처리 방식</legend>
+						<details>
+							<summary>처리 방식 도움말</summary>
+							<p>자동 복원은 손상을 보정한 뒤 확대합니다. 확대만은 압축 보정을 건너뛰고 선택한 사진 또는 글자·그림 모델로 확대합니다.</p>
+						</details>
+						<div class="segments">
+							<label class="segment">
+								<input type="radio" name="mode" value="restore" bind:group={mode} disabled={busy} />
+								<span>자동 복원</span>
+							</label>
+							<label class="segment">
+								<input type="radio" name="mode" value="upscaleOnly" bind:group={mode} disabled={busy} />
+								<span>확대만</span>
+							</label>
+						</div>
+					</fieldset>
+				{/if}
+
+				<fieldset disabled={upscaleOnly}>
 					<legend>손상 유형</legend>
 <details>
     <summary>손상 유형 도움말</summary>
@@ -384,26 +416,26 @@ onMount(() => {
 				</fieldset>
 
 				<div class="actions">
-					<button type="button" class="primary" onclick={run} disabled={busy}>복원 시작</button>
+					<button type="button" class="primary" onclick={run} disabled={busy}>{actionLabel} 시작</button>
 					<button type="button" onclick={() => send({ type: "cancel" })} disabled={phase !== "running"}>취소</button>
 				</div>
 
 				{#if phase === "running"}
 					<div class="progress">
 						<progress aria-label="타일 진행률" max={Math.max(progress.total, 1)} value={progress.done}></progress>
-						<span>복원 진행률 {progress.total > 0 ? Math.round(progress.done / progress.total * 100) : 0}% ({progress.done} / {progress.total})</span>
+						<span>{actionLabel} 진행률 {progress.total > 0 ? Math.round(progress.done / progress.total * 100) : 0}% ({progress.done} / {progress.total})</span>
 <span>경과 시간: {elapsedTime.toFixed(1)}초</span>
 					</div>
 				{/if}
 {#if phase === "done" && inspection !== null && resultWidth > 0}
     <div>
-        <h3>복원 결과 상세 정보</h3>
+        <h3>{actionLabel} 결과 상세 정보</h3>
         <p>원본 해상도: {inspection.width} × {inspection.height}</p>
-        <p>복원 해상도: {resultWidth} × {resultHeight}</p>
+        <p>{actionLabel} 해상도: {resultWidth} × {resultHeight}</p>
         <p>확대 배율: {(resultWidth / inspection.width).toFixed(1)}배</p>
         <p>결과 파일 형식: PNG</p>
         <p>결과 파일 용량: {(resultSize / 1024 / 1024).toFixed(2)} MB</p>
-        <p>복원 소요 시간: {elapsedTime.toFixed(1)}초</p>
+        <p>{actionLabel} 소요 시간: {elapsedTime.toFixed(1)}초</p>
     </div>
 {/if}
 			{/if}

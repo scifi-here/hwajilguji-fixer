@@ -2,7 +2,11 @@ import * as ort from "onnxruntime-web/webgpu";
 import type { RgbImage, TileModel } from "./tiles.ts";
 
 export type Backend = "webgpu" | "wasm";
-export type ModelRole = "deblock" | "upscalePhoto" | "upscaleGraphic";
+export type ModelRole =
+	| "deblock"
+	| "upscalePhoto"
+	| "upscaleGraphic"
+	| "upscaleGraphicBackProjection";
 export type LoadedModel = {
 	readonly model: TileModel;
 	readonly backend: Backend;

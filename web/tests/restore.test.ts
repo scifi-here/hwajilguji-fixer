@@ -39,6 +39,11 @@ const models: Record<ModelRole, TileModel> = {
 		multipleOf: 1,
 		run: async (tile) => nearestX4(tile),
 	},
+	upscaleGraphicBackProjection: {
+		scale: 4,
+		multipleOf: 1,
+		run: async (tile) => nearestX4(tile),
+	},
 	upscaleGraphic: {
 		scale: 4,
 		multipleOf: 1,
@@ -76,7 +81,7 @@ describe("restore routes", () => {
 			cv,
 			noisy,
 			report(null),
-			{ scale: 1, damage: "clean", content: "photo" },
+			{ mode: "restore", scale: 1, damage: "clean", content: "photo" },
 			deps,
 		);
 		expect(Buffer.from(result.data).equals(Buffer.from(noisy.data))).toBe(true);
@@ -87,7 +92,7 @@ describe("restore routes", () => {
 			cv,
 			noisy,
 			report([3, 5]),
-			{ scale: 1, damage: "blocky8", content: "photo" },
+			{ mode: "restore", scale: 1, damage: "blocky8", content: "photo" },
 			deps,
 		);
 		expect([result.width, result.height]).toEqual([noisy.width, noisy.height]);
@@ -106,7 +111,7 @@ describe("restore routes", () => {
 			cv,
 			noisy,
 			report(null),
-			{ scale: 1, damage: "smeared", content: "photo" },
+			{ mode: "restore", scale: 1, damage: "smeared", content: "photo" },
 			deblockOnly,
 		);
 		expect([result.width, result.height]).toEqual([noisy.width, noisy.height]);
@@ -118,7 +123,7 @@ describe("restore routes", () => {
 			cv,
 			flat,
 			report(null),
-			{ scale: 2, damage: "smeared", content: "graphic" },
+			{ mode: "restore", scale: 2, damage: "smeared", content: "graphic" },
 			deps,
 		);
 		expect([result.width, result.height]).toEqual([60, 40]);
@@ -134,7 +139,7 @@ describe("restore routes", () => {
 			cv,
 			translucent,
 			report(null),
-			{ scale: 4, damage: "clean", content: "photo" },
+			{ mode: "restore", scale: 4, damage: "clean", content: "photo" },
 			deps,
 		);
 		expect([result.width, result.height]).toEqual([96, 64]);
@@ -142,3 +147,30 @@ describe("restore routes", () => {
 		expect([...alphas]).toEqual([77]);
 	});
 });
+
+it.each([2, 4] as const)(
+	"bypasses palette repair at %ix when only enlarging",
+	async (scale) => {
+		const input = rgba(22, 17, (x, y) =>
+			(x + y) % 2 === 0 ? [80, 80, 80, 77] : [100, 100, 100, 77],
+		);
+		const result = await restore(
+			cv,
+			input,
+			report(null),
+			{
+				mode: "upscaleOnly",
+				scale,
+				damage: "palette",
+				content: "photo",
+			},
+			deps,
+		);
+		expect(result.width).toBe(22 * scale);
+		expect(result.height).toBe(17 * scale);
+		expect([...result.data.slice(0, 4)]).toEqual([80, 80, 80, 77]);
+		expect([...result.data.slice(4 * scale, 4 * scale + 4)]).toEqual([
+			100, 100, 100, 77,
+		]);
+	},
+);
