@@ -67,7 +67,7 @@ All gate constants MUST live in one file, `thresholds.ts`.
 
 ### Restore
 
-The user chooses a scale of 1x, 2x, or 4x. The default is 2x. The user MAY override the damage class and the content kind. The defaults are the gate values.
+The user chooses a scale of 1x, 2x, or 4x. The default is 2x. The user MAY override the damage class and the content kind. The defaults are the gate values. At 2x and 4x the user MAY choose **확대만** to skip grid alignment, deblocking, depalettization, and flat-area smoothing. This mode keeps the selected content type, colour matching, alpha handling, and tile limits. At 1x only the existing repair path is available.
 
 | Damage | Steps |
 |---|---|
@@ -78,7 +78,7 @@ The user chooses a scale of 1x, 2x, or 4x. The default is 2x. The user MAY overr
 
 The grid alignment reflect-pads the left side by `(8 - offsetX) mod 8` and the top by `(8 - offsetY) mod 8`. Block edges then sit on multiples of 8.
 
-The upscale step MUST use the graphic model for `graphic` content and the photo model otherwise. Both models scale by 4. The product MUST resize each 4x tile to the requested scale before it writes the tile into the output.
+The upscale step MUST use the graphic model for `graphic` content and the photo model otherwise. For graphics in **확대만**, the model MUST clamp the pretrained 4x prediction to [0, 1], average non-overlapping 4×4 cells, subtract these averages from the input RGB, then add the half-pixel bilinear 4x enlargement of that difference to the clamped prediction. All upscalers scale by 4. The product MUST resize each 4x tile to the requested scale before it writes the tile into the output.
 
 Models see RGB only. The product MUST resize the alpha plane with cubic interpolation and reattach it.
 
@@ -98,7 +98,7 @@ The tiler MUST throw an `AbortError` between tiles when the abort signal is set.
 ### Finish
 
 1. Colour match: resize the input to the output size. Blur both with a Gaussian of sigma `3 * scale`. Add the difference to the output.
-2. For `smeared` and `palette` only: apply a bilateral filter (diameter 5, sigmaColor 12, sigmaSpace 5) where the luma gradient magnitude is below 8.
+2. In automatic repair mode, for `smeared` and `palette` only: apply a bilateral filter (diameter 5, sigmaColor 12, sigmaSpace 5) where the luma gradient magnitude is below 8.
 3. Clamp the output to 8 bits.
 
 ## Constraints
@@ -120,6 +120,7 @@ UI. The UI text is Korean. The UI has one screen. Colours, spacing, and radii MU
 | `deblock` | `dejpeg-v2.onnx` | `Miosp/dejpeg` release `v2.0.0` | Apache-2.0 | 15,376,612 bytes, float32 input and output (computes in fp16 inside), opset 17, dynamic axes, sides a multiple of 16, blind |
 | `upscalePhoto` | `realesr-general-x4v3.onnx` | Exported by `tools` from the official `realesr-general-x4v3.pth` (4,885,111 bytes) of `xinntao/Real-ESRGAN` | BSD-3-Clause | 4,949,877 bytes, fp32, x4 |
 | `upscaleGraphic` | `realesr-animevideov3.onnx` | Exported by `tools` from the official `realesr-animevideov3.pth` (2,504,012 bytes) | BSD-3-Clause | 2,537,781 bytes, fp32, x4 |
+| `upscaleGraphicBackProjection` | `realesr-animevideov3-backprojection.onnx` | Same graphic weights with one back-projection step for **확대만** | BSD-3-Clause | 2,535,743 bytes, fp32, x4 |
 
 `Miosp/dejpeg` is young: 6 stars, one author, self-reported benchmarks, and unpublished v2 training code. The team MUST measure the model before it ships. The adoption gate is in the acceptance criteria. If the model fails the gate, the team MUST replace it with FBCNN colour (`jiaxi-jiang/FBCNN`, Apache-2.0, `fbcnn_color.pth`, 287,755,111 bytes). The replacement is about 143 MB in fp32, so the UI MUST state the download size before first use.
 
@@ -127,7 +128,7 @@ The `tools` package vendors the `SRVGGNetCompact` network class from `xinntao/Re
 
 The repository MUST ship `web/static/models/NOTICE.md`. It lists each model file with its source URL, license name, SHA-256, and the full license text.
 
-`models.json` is the contract between the Python export and the browser loader. Each entry has `file`, `sha256`, `bytes`, `inputName`, `outputName`, `elementType`, `scale`, `multipleOf`, `range`, `layout`, `license`, and `source`. The roles are `deblock`, `upscalePhoto`, and `upscaleGraphic`.
+`models.json` is the contract between the Python export and the browser loader. Each entry has `file`, `sha256`, `bytes`, `inputName`, `outputName`, `elementType`, `scale`, `multipleOf`, `range`, `layout`, `license`, and `source`. The roles are `deblock`, `upscalePhoto`, `upscaleGraphic`, and `upscaleGraphicBackProjection`.
 
 `heic-to` is LGPL-3.0. The product MUST load it only when the user opens a HEIC file. The README MUST state the HEVC patent note.
 
