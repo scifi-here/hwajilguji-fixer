@@ -62,6 +62,18 @@ let scale = $state<Scale>(2);
 let damageChoice = $state<DamageClass | "auto">("auto");
 let contentChoice = $state<ContentKind | "auto">("auto");
 let progress = $state({ done: 0, total: 0 });
+let elapsedTime = $state(0);
+let startTime = 0;
+
+$effect(() => {
+    if (phase !== "running") return;
+
+    const timer = setInterval(() => {
+        elapsedTime = (performance.now() - startTime) / 1000;
+    }, 100);
+
+    return () => clearInterval(timer);
+});
 let failure = $state<string | null>(null);
 let resultUrl = $state<string | null>(null);
 let usedBackend = $state<Backend | null>(null);
@@ -137,6 +149,7 @@ async function showInspection(next: Inspection): Promise<void> {
 
 async function showResult(png: Blob, backend: Backend): Promise<void> {
 	clearResult();
+elapsedTime = (performance.now() - startTime) / 1000;
 	usedBackend = backend;
 	resultUrl = URL.createObjectURL(png);
 	phase = "done";
@@ -179,6 +192,8 @@ function run(): void {
 	if (inspection === null) return;
 	failure = null;
 	clearResult();
+elapsedTime = 0;
+startTime = performance.now();
 	phase = "running";
 	send({
 		type: "restore",
@@ -350,9 +365,13 @@ onMount(() => {
 				{#if phase === "running"}
 					<div class="progress">
 						<progress aria-label="타일 진행률" max={Math.max(progress.total, 1)} value={progress.done}></progress>
-						<span>타일 {progress.done} / {progress.total}</span>
+						<span>복원 진행률 {progress.total > 0 ? Math.round(progress.done / progress.total * 100) : 0}% ({progress.done} / {progress.total})</span>
+<span>경과 시간: {elapsedTime.toFixed(1)}초</span>
 					</div>
 				{/if}
+{#if phase === "done"}
+    <p>복원 소요 시간: {elapsedTime.toFixed(1)}초</p>
+{/if}
 			{/if}
 
 			{#if failure !== null}
