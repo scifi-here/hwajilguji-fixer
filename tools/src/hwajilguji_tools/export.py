@@ -2,7 +2,7 @@ import hashlib
 import json
 import shutil
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal
 
@@ -10,9 +10,11 @@ import onnx
 import torch
 
 
-from hwajilguji_tools.srvgg import SRVGGNetCompact
+from hwajilguji_tools.srvgg import GraphicBackProjection, SRVGGNetCompact
 
-type Role = Literal["deblock", "upscalePhoto", "upscaleGraphic"]
+type Role = Literal[
+    "deblock", "upscalePhoto", "upscaleGraphic", "upscaleGraphicBackProjection"
+]
 type Entry = dict[str, str | int | list[int]]
 
 LICENSES = Path(__file__).parent / "licenses"
@@ -46,6 +48,20 @@ class ShippedModel:
     num_conv: int | None
 
 
+GRAPHIC = ShippedModel(
+    "upscaleGraphic",
+    "realesr-animevideov3.onnx",
+    Asset(
+        f"{REALESRGAN}/releases/download/v0.2.5.0/realesr-animevideov3.pth",
+        2_504_012,
+        None,
+    ),
+    "BSD-3-Clause",
+    4,
+    1,
+    16,
+)
+
 SHIPPED = (
     ShippedModel(
         "deblock",
@@ -73,18 +89,11 @@ SHIPPED = (
         1,
         32,
     ),
-    ShippedModel(
-        "upscaleGraphic",
-        "realesr-animevideov3.onnx",
-        Asset(
-            f"{REALESRGAN}/releases/download/v0.2.5.0/realesr-animevideov3.pth",
-            2_504_012,
-            None,
-        ),
-        "BSD-3-Clause",
-        4,
-        1,
-        16,
+    GRAPHIC,
+    replace(
+        GRAPHIC,
+        role="upscaleGraphicBackProjection",
+        file="realesr-animevideov3-backprojection.onnx",
     ),
 )
 
@@ -130,20 +139,23 @@ def load_upscaler(weights: Path, num_conv: int) -> SRVGGNetCompact:
     return network.eval()
 
 
-def export_upscaler(network: SRVGGNetCompact, path: Path) -> None:
-    torch.onnx.export(  # pyright: ignore[reportUnknownMemberType]
+def export_upscaler(network: torch.nn.Module, path: Path) -> None:
+    program = torch.onnx.export(  # pyright: ignore[reportUnknownMemberType]
         network.eval(),
         (torch.rand(1, 3, 64, 64),),
-        path,
         input_names=["input"],
         output_names=["output"],
         dynamo=True,
-        external_data=False,
         dynamic_shapes={
             "x": {2: torch.export.Dim("height"), 3: torch.export.Dim("width")}
         },
         verbose=False,
     )
+    if program is None:
+        raise RuntimeError("ONNX export did not return a model")
+    for node in program.model.graph.all_nodes():
+        node.metadata_props.pop("pkg.torch.onnx.stack_trace", None)
+    path.write_bytes(program.model_proto.SerializeToString())
 
 
 def describe(path: Path, model: ShippedModel) -> Entry:
@@ -196,6 +208,7 @@ def notice(entries: dict[Role, Entry], upstream: dict[Role, str]) -> str:
             "",
             "`realesr-*.onnx` are exported from the upstream `.pth` weights"
             " by `hwajilguji-tools export`.",
+            "`realesr-animevideov3-backprojection.onnx` adds one back-projection step.",
             "`dejpeg-v2.onnx` ships as published.\n",
             *licenses,
         ]
@@ -213,7 +226,13 @@ def export_models(models: Path, cache: Path) -> dict[Role, Entry]:
         if model.num_conv is None:
             shutil.copyfile(source, shipped)
         else:
-            export_upscaler(load_upscaler(source, model.num_conv), shipped)
+            network = load_upscaler(source, model.num_conv)
+            export_upscaler(
+                GraphicBackProjection(network)
+                if model.role == "upscaleGraphicBackProjection"
+                else network,
+                shipped,
+            )
         entries[model.role] = describe(shipped, model)
     (models / "models.json").write_text(json.dumps(entries, indent=2) + "\n")
     (models / "NOTICE.md").write_text(notice(entries, upstream))
