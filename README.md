@@ -78,6 +78,10 @@ We checked 190 reference characters across two screen crops (settings and a docu
 | Automatic restoration with text regions patched | 45 | 197 |
 | Bicubic alone | 26 | 168 |
 
+The 2x settings crop below is displayed at twice its output pixel size. On these eight labels, OCR made 21 character errors on the current output, 17 after patching and 13 on bicubic.
+
+![Korean settings labels in the reference, current automatic output, OCR-patched output and bicubic enlargement](docs/korean-text-comparison.png)
+
 The tool selected no regions on 32 inputs from eight Kodak photos enlarged at both scales, with and without JPEG compression. The small gain at 4x and the lower error count from bicubic alone are reasons to keep this as a local experiment.
 
 ### Photo upscaler comparison
