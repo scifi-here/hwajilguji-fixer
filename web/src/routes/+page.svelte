@@ -69,13 +69,13 @@ let resultSize = $state(0);
 let startTime = 0;
 
 $effect(() => {
-    if (phase !== "running") return;
+	if (phase !== "running") return;
 
-    const timer = setInterval(() => {
-        elapsedTime = (performance.now() - startTime) / 1000;
-    }, 100);
+	const timer = setInterval(() => {
+		elapsedTime = (performance.now() - startTime) / 1000;
+	}, 100);
 
-    return () => clearInterval(timer);
+	return () => clearInterval(timer);
 });
 let failure = $state<string | null>(null);
 let resultUrl = $state<string | null>(null);
@@ -125,16 +125,16 @@ function openFirst(files: FileList | null | undefined): void {
 	});
 }
 async function loadExample(filename: string): Promise<void> {
-    try {
-        const response = await fetch(`/examples/${filename}`);
-        if (!response.ok) throw new Error("예시 이미지를 불러올 수 없습니다.");
-        const blob = await response.blob();
-        const file = new File([blob], filename, { type: "image/jpeg" });
-        await open(file);
-    } catch (error) {
-        failure = error instanceof Error ? error.message : String(error);
-        phase = "empty";
-    }
+	try {
+		const response = await fetch(`/examples/${filename}`);
+		if (!response.ok) throw new Error("예시 이미지를 불러올 수 없습니다.");
+		const blob = await response.blob();
+		const file = new File([blob], filename, { type: "image/jpeg" });
+		await open(file);
+	} catch (error) {
+		failure = error instanceof Error ? error.message : String(error);
+		phase = "empty";
+	}
 }
 async function showInspection(next: Inspection): Promise<void> {
 	inspection = next;
@@ -152,14 +152,14 @@ async function showInspection(next: Inspection): Promise<void> {
 
 async function showResult(png: Blob, backend: Backend): Promise<void> {
 	clearResult();
-elapsedTime = (performance.now() - startTime) / 1000;
+	elapsedTime = (performance.now() - startTime) / 1000;
 	usedBackend = backend;
 	resultUrl = URL.createObjectURL(png);
 	phase = "done";
 	const bitmap = await createImageBitmap(png);
-resultWidth = bitmap.width;
-resultHeight = bitmap.height;
-resultSize = png.size;
+	resultWidth = bitmap.width;
+	resultHeight = bitmap.height;
+	resultSize = png.size;
 	await tick();
 	if (afterCanvas === undefined) return;
 	afterCanvas.width = bitmap.width;
@@ -198,8 +198,8 @@ function run(): void {
 	if (inspection === null) return;
 	failure = null;
 	clearResult();
-elapsedTime = 0;
-startTime = performance.now();
+	elapsedTime = 0;
+	startTime = performance.now();
 	phase = "running";
 	send({
 		type: "restore",
