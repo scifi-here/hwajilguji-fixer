@@ -3,7 +3,9 @@ import { finish } from "./finish.ts";
 import type { ContentKind, DamageClass, GateReport } from "./gate.ts";
 import { alignGrid, cropImage, depalette } from "./prepass.ts";
 import type { Backend, LoadedModel, ModelRole } from "./session.ts";
+import { suppressTextHalos } from "./text-halo.ts";
 import { blendText, detectText, resizeMask } from "./text-preserve.ts";
+import { JPEG_QUALITY_SMEAR_MAX } from "./thresholds.ts";
 import {
 	type RgbImage,
 	runTiled,
@@ -250,6 +252,15 @@ export async function restore(
 			choice.scale,
 			deps.signal,
 		);
+	}
+	if (
+		mask &&
+		(choice.damage === "blocky8" ||
+			choice.damage === "smeared" ||
+			(report.jpegQuality !== null &&
+				report.jpegQuality < JPEG_QUALITY_SMEAR_MAX))
+	) {
+		await suppressTextHalos(result, mask, choice.scale, deps.signal);
 	}
 	if (automatic) deps.onTextCoverage?.(mask?.fraction ?? 0);
 	return attachAlpha(cv, result, image);

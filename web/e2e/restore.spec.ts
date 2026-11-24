@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 const fixturePath = (name: string): string =>
 	new URL(`../tests/fixtures/e2e/${name}`, import.meta.url).pathname;
@@ -18,6 +18,24 @@ async function decodeInPage(page: Page, name: string): Promise<number[]> {
 		},
 		Array.from(readFileSync(fixturePath(name))),
 	);
+}
+
+async function downloadedPixels(link: Locator): Promise<number[]> {
+	return link.evaluate(async (el) => {
+		const response = await fetch((el as HTMLAnchorElement).href);
+		const bitmap = await createImageBitmap(await response.blob());
+		try {
+			const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+			const ctx = canvas.getContext("2d", { willReadFrequently: true });
+			if (!ctx) throw Error("missing 2d context");
+			ctx.drawImage(bitmap, 0, 0);
+			return Array.from(
+				ctx.getImageData(0, 0, bitmap.width, bitmap.height).data,
+			);
+		} finally {
+			bitmap.close();
+		}
+	});
 }
 
 function psnr(rgba: readonly number[], reference: readonly number[]): number {
@@ -242,19 +260,7 @@ test("the downloaded PNG and result preview both retain opaque photo pixels", as
 	await page.getByRole("button", { name: "복원 시작" }).click();
 	const link = page.getByRole("link", { name: "PNG로 저장" });
 	await expect(link).toBeVisible({ timeout: 60_000 });
-	const pixel = await link.evaluate(async (element) => {
-		const response = await fetch((element as HTMLAnchorElement).href);
-		const bitmap = await createImageBitmap(await response.blob());
-		try {
-			const canvas = new OffscreenCanvas(1, 1);
-			const ctx = canvas.getContext("2d", { willReadFrequently: true });
-			if (!ctx) throw Error("missing 2d context");
-			ctx.drawImage(bitmap, 0, 0);
-			return Array.from(ctx.getImageData(0, 0, 1, 1).data);
-		} finally {
-			bitmap.close();
-		}
-	});
+	const pixel = (await downloadedPixels(link)).slice(0, 4);
 	expect(pixel[3]).toBe(255);
 	await expect
 		.poll(() =>
@@ -264,4 +270,31 @@ test("the downloaded PNG and result preview both retain opaque photo pixels", as
 			}),
 		)
 		.toEqual(pixel);
+});
+
+test("cleans the compression fringe around a Korean heading at 2x", async ({
+	page,
+}) => {
+	await page.goto("/");
+	const ring = await decodeInPage(page, "korean-heading-background-ring.png");
+	await page
+		.locator('input[type="file"]')
+		.setInputFiles(fixturePath("korean-heading-q25.jpg"));
+	await page.getByText("2x", { exact: true }).click();
+	await page.getByRole("button", { name: "복원 시작" }).click();
+	const link = page.getByRole("link", { name: "PNG로 저장" });
+	await expect(link).toBeVisible({ timeout: 90_000 });
+	const restored = await downloadedPixels(link);
+	expect(restored.length).toBe(ring.length);
+	let error = 0,
+		samples = 0;
+	const background = [244, 243, 240];
+	for (let p = 0; p < ring.length; p += 4) {
+		if (!ring[p]) continue;
+		for (const [c, value] of background.entries())
+			error += Math.abs(restored[p + c] - value);
+		samples += 3;
+	}
+	expect(samples).toBeGreaterThan(10_000);
+	expect(error / samples).toBeLessThan(8);
 });
