@@ -77,3 +77,18 @@ class SRVGGNetCompact(nn.Module):
         out = self.upsampler(out)
         base = functional.interpolate(x, scale_factor=self.upscale, mode="nearest")
         return out + base
+
+
+class GraphicBackProjection(nn.Module):
+    def __init__(self, network: SRVGGNetCompact) -> None:
+        super().__init__()
+        self.network = network
+
+    def forward(self, x: Tensor) -> Tensor:
+        scale = self.network.upscale
+        prediction = self.network(x).clamp(0, 1)
+        residual = x - functional.avg_pool2d(prediction, scale, stride=scale)
+        correction = functional.interpolate(
+            residual, scale_factor=scale, mode="bilinear", align_corners=False
+        )
+        return prediction + correction

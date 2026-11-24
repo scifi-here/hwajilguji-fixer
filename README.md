@@ -13,7 +13,7 @@ The app inspects the image first, then picks a repair path for the damage it fin
 3. **Finish.** A light OpenCV pass restores the large-scale colour of the source and smooths leftover banding in flat areas. Text and edges stay untouched.
 4. **Upscale.** You can keep the size (1x), double it (2x, the default), or quadruple it (4x). Every model runs on small tiles, so large images do not exhaust memory.
 
-You can override the damage type and the content type if the automatic choice is wrong.
+At 2x and 4x, **자동 복원** applies the repair path above. **확대만** skips damage repair and enlarges the input directly, keeping colour matching and alpha. For text and graphics, its upscaler reduces the 4x prediction back to input size, measures the RGB difference from the input, then upsamples and adds that correction once. You can select **글자·그림** if a screenshot is detected as a photo. The damage override applies in automatic repair mode.
 
 ## Supported formats
 
@@ -129,7 +129,8 @@ The app is a static site, so it needs no server. `render.yaml` describes the sit
 |---|---|---|---|
 | JPEG deblocker | `dejpeg-v2.onnx` | [`Miosp/dejpeg`](https://github.com/Miosp/dejpeg) release `v2.0.0` | Apache-2.0 |
 | Upscaler, photo | `realesr-general-x4v3.onnx` | Exported from the official `realesr-general-x4v3.pth` of [`xinntao/Real-ESRGAN`](https://github.com/xinntao/Real-ESRGAN) | BSD-3-Clause |
-| Upscaler, graphic | `realesr-animevideov3.onnx` | Exported from the official `realesr-animevideov3.pth` of `xinntao/Real-ESRGAN` | BSD-3-Clause |
+| Upscaler, graphic (automatic repair) | `realesr-animevideov3.onnx` | Exported from the official `realesr-animevideov3.pth` of `xinntao/Real-ESRGAN` | BSD-3-Clause |
+| Upscaler, graphic (확대만) | `realesr-animevideov3-backprojection.onnx` | Same pretrained weights with one back-projection step | BSD-3-Clause |
 
 The license texts ship in `web/static/models/NOTICE.md`.
 

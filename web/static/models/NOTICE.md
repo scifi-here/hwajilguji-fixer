@@ -5,8 +5,10 @@
 | `dejpeg-v2.onnx` | https://github.com/Miosp/dejpeg/releases/download/v2.0.0/dejpeg-v2.onnx | Apache-2.0 | `cc345b6ce3a4b70856358911fed69ccebe939c1381aa94d969f15e2d81394690` | `cc345b6ce3a4b70856358911fed69ccebe939c1381aa94d969f15e2d81394690` |
 | `realesr-general-x4v3.onnx` | https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-x4v3.pth | BSD-3-Clause | `0fcdcac66c5f27b730e9fa57c49a504fa91f9bd5360b1319d9fab3ac53999711` | `8dc7edb9ac80ccdc30c3a5dca6616509367f05fbc184ad95b731f05bece96292` |
 | `realesr-animevideov3.onnx` | https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-animevideov3.pth | BSD-3-Clause | `fcae8b5ea320fb53c2d896c6b87c51f14fe20b38e241d0625b3662e8b8ca225d` | `b8a8376811077954d82ca3fcf476f1ac3da3e8a68a4f4d71363008000a18b75d` |
+| `realesr-animevideov3-backprojection.onnx` | https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-animevideov3.pth | BSD-3-Clause | `eaf315ccee18bf175305eefb03d4b38d3058fc46eaf8395b3801839bf86b2d18` | `b8a8376811077954d82ca3fcf476f1ac3da3e8a68a4f4d71363008000a18b75d` |
 
 `realesr-*.onnx` are exported from the upstream `.pth` weights by `hwajilguji-tools export`.
+`realesr-animevideov3-backprojection.onnx` adds one back-projection step.
 `dejpeg-v2.onnx` ships as published.
 
 ## Apache-2.0
