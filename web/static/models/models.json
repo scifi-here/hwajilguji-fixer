@@ -49,5 +49,22 @@
       1
     ],
     "layout": "NCHW-RGB"
+  },
+  "upscaleGraphicBackProjection": {
+    "file": "realesr-animevideov3-backprojection.onnx",
+    "sha256": "eaf315ccee18bf175305eefb03d4b38d3058fc46eaf8395b3801839bf86b2d18",
+    "bytes": 2535743,
+    "inputName": "input",
+    "outputName": "output",
+    "elementType": "float32",
+    "scale": 4,
+    "multipleOf": 1,
+    "license": "BSD-3-Clause",
+    "source": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-animevideov3.pth",
+    "range": [
+      0,
+      1
+    ],
+    "layout": "NCHW-RGB"
   }
 }
