@@ -321,6 +321,13 @@ onMount(() => {
 
 				<fieldset>
 					<legend>배율</legend>
+<details>
+    <summary>배율 선택 도움말</summary>
+    <p>1x: 원본 크기를 유지하며 화질을 개선합니다.</p>
+    <p>2x: 가로와 세로 해상도를 2배로 확대합니다.</p>
+    <p>4x: 가로와 세로 해상도를 4배로 확대합니다.</p>
+    <p>배율이 높을수록 복원 시간이 길어질 수 있습니다.</p>
+</details>
 					<div class="segments">
 						{#each SCALES as option (option)}
 							<label class="segment">
@@ -333,6 +340,13 @@ onMount(() => {
 
 				<fieldset>
 					<legend>손상 유형</legend>
+<details>
+    <summary>손상 유형 도움말</summary>
+    <p>자동: 이미지의 손상 유형을 자동으로 판단합니다.</p>
+    <p>JPEG 블록: 이미지 압축으로 발생한 사각형 노이즈를 개선합니다.</p>
+    <p>뭉개짐: 흐릿하거나 뭉개진 이미지에 사용합니다.</p>
+    <p>팔레트: 색상 수가 제한된 이미지에 사용합니다.</p>
+</details>
 					<div class="segments">
 						<label class="segment">
 							<input type="radio" name="damage" value="auto" bind:group={damageChoice} disabled={busy} />
@@ -349,6 +363,12 @@ onMount(() => {
 
 				<fieldset>
 					<legend>내용</legend>
+<details>
+    <summary>내용 선택 도움말</summary>
+    <p>자동: 이미지의 내용 유형을 자동으로 판단합니다.</p>
+    <p>사진: 인물, 풍경, 동물 등의 일반 사진에 사용합니다.</p>
+    <p>글자·그림: 문서, 만화, 일러스트 등에 사용합니다.</p>
+</details>
 					<div class="segments">
 						<label class="segment">
 							<input type="radio" name="content" value="auto" bind:group={contentChoice} disabled={busy} />
