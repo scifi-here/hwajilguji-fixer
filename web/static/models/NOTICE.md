@@ -1,10 +1,17 @@
 # Third-party models
 
+SPAN (Hongyuan Yu et al.): https://github.com/hongyuanyu/SPAN. The export folds the 48-channel EMA convolutions from OpenModelDB.
+
+PP-OCRv3 (PaddleOCR / OpenCV Zoo): https://github.com/opencv/opencv_zoo/tree/main/models/text_detection_ppocr. RGB input and a three-channel probability map are added on export. Copyright (c) 2016 PaddlePaddle Authors. All Rights Reserved.
+
 | File | Source | License | SHA-256 | Upstream SHA-256 |
 |---|---|---|---|---|
+| `span-x2.onnx` | https://objectstorage.us-phoenix-1.oraclecloud.com/n/ax6ygfvpvzka/b/open-modeldb-files/o/2x-spanx2-ch48.pth | Apache-2.0 | `c8c41a90f56620931537d816f3c5b1037a1b56bc1040ba19c298140ee000c013` | `0b20caeea7af5507ec3bdc63ff5a141a28506279d2cfec909c417ecb308d3f93` |
+| `span-x4.onnx` | https://objectstorage.us-phoenix-1.oraclecloud.com/n/ax6ygfvpvzka/b/open-modeldb-files/o/4x-spanx4-ch48.pth | Apache-2.0 | `41ec0eaeab7678463b050fdec7728d1fde8434d6fd4cf673b21f838c5083d89e` | `c79e716b8eb24182c1d7fcc74fa10ae074bdb34fee7c6e67c73053ff5498c667` |
+| `ppocr-text-mask.onnx` | https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/text_detection_ppocr/text_detection_cn_ppocrv3_2023may.onnx | Apache-2.0 | `6c33c3508c8c42e8555453cf80f99011a0df267b9f4bb188c25723de8fdd512f` | `03f550c6b406fda8bf54bd8327815f6c7e2edd98cea02348c93d879254366587` |
 | `dejpeg-v2.onnx` | https://github.com/Miosp/dejpeg/releases/download/v2.0.0/dejpeg-v2.onnx | Apache-2.0 | `cc345b6ce3a4b70856358911fed69ccebe939c1381aa94d969f15e2d81394690` | `cc345b6ce3a4b70856358911fed69ccebe939c1381aa94d969f15e2d81394690` |
-| `realesr-general-x4v3.onnx` | https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-x4v3.pth | BSD-3-Clause | `0fcdcac66c5f27b730e9fa57c49a504fa91f9bd5360b1319d9fab3ac53999711` | `8dc7edb9ac80ccdc30c3a5dca6616509367f05fbc184ad95b731f05bece96292` |
-| `realesr-animevideov3.onnx` | https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-animevideov3.pth | BSD-3-Clause | `fcae8b5ea320fb53c2d896c6b87c51f14fe20b38e241d0625b3662e8b8ca225d` | `b8a8376811077954d82ca3fcf476f1ac3da3e8a68a4f4d71363008000a18b75d` |
+| `realesr-general-x4v3.onnx` | https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-x4v3.pth | BSD-3-Clause | `bff55ec620d48f31e8bf75c46a367c95a51080b1f8f3849507ca186c401aed26` | `8dc7edb9ac80ccdc30c3a5dca6616509367f05fbc184ad95b731f05bece96292` |
+| `realesr-animevideov3.onnx` | https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-animevideov3.pth | BSD-3-Clause | `0e1c86a3b0f8d912819692084f9533281908079e3b2da4376a23289718b98637` | `b8a8376811077954d82ca3fcf476f1ac3da3e8a68a4f4d71363008000a18b75d` |
 | `realesr-animevideov3-backprojection.onnx` | https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-animevideov3.pth | BSD-3-Clause | `eaf315ccee18bf175305eefb03d4b38d3058fc46eaf8395b3801839bf86b2d18` | `b8a8376811077954d82ca3fcf476f1ac3da3e8a68a4f4d71363008000a18b75d` |
 
 `realesr-*.onnx` are exported from the upstream `.pth` weights by `hwajilguji-tools export`.

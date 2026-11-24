@@ -4,6 +4,9 @@ import type { RgbImage, TileModel } from "./tiles.ts";
 export type Backend = "webgpu" | "wasm";
 export type ModelRole =
 	| "deblock"
+	| "textDetector"
+	| "photo2x"
+	| "photo4x"
 	| "upscalePhoto"
 	| "upscaleGraphic"
 	| "upscaleGraphicBackProjection";

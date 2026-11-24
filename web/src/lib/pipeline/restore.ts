@@ -3,7 +3,13 @@ import { finish } from "./finish.ts";
 import type { ContentKind, DamageClass, GateReport } from "./gate.ts";
 import { alignGrid, cropImage, depalette } from "./prepass.ts";
 import type { Backend, LoadedModel, ModelRole } from "./session.ts";
-import { type RgbImage, runTiled, type TileModel } from "./tiles.ts";
+import { blendText, detectText, resizeMask } from "./text-preserve.ts";
+import {
+	type RgbImage,
+	runTiled,
+	type TileModel,
+	type TileOverlay,
+} from "./tiles.ts";
 
 export type Scale = 1 | 2 | 4;
 export type RestoreMode = "restore" | "upscaleOnly";
@@ -22,6 +28,7 @@ export type RestoreDeps = {
 	loadModel(role: ModelRole): Promise<LoadedModel>;
 	readonly signal: AbortSignal;
 	onProgress(done: number, total: number): void;
+	onTextCoverage?(fraction: number): void;
 };
 
 const TILE_SETTINGS: Record<
@@ -37,13 +44,14 @@ function runModel(
 	image: RgbImage,
 	loaded: LoadedModel,
 	deps: RestoreDeps,
+	overlay?: TileOverlay,
 ): Promise<RgbImage> {
 	const options = {
 		...TILE_SETTINGS[loaded.backend],
 		signal: deps.signal,
 		onProgress: deps.onProgress,
 	};
-	return runTiled(cv, image, loaded.model, options);
+	return runTiled(cv, image, loaded.model, options, overlay);
 }
 
 async function deblock(
@@ -87,28 +95,23 @@ function resizeTile(
 async function upscale(
 	cv: CV,
 	image: RgbImage,
-	choice: RestoreChoice,
+	scale: Scale,
+	role: ModelRole,
 	deps: RestoreDeps,
-	graphicModel:
-		| "upscaleGraphic"
-		| "upscaleGraphicBackProjection" = "upscaleGraphic",
+	overlay?: TileOverlay,
 ): Promise<RgbImage> {
-	const loaded = await deps.loadModel(
-		choice.content === "photo" ? "upscalePhoto" : graphicModel,
-	);
-	if (loaded.model.scale < choice.scale)
-		throw new Error(
-			`upscaler is ${loaded.model.scale}x, ${choice.scale}x asked`,
-		);
+	const loaded = await deps.loadModel(role);
+	if (loaded.model.scale < scale)
+		throw new Error(`upscaler is ${loaded.model.scale}x, ${scale}x asked`);
 	const atRequestedScale: TileModel = {
-		scale: choice.scale,
+		scale: scale,
 		multipleOf: loaded.model.multipleOf,
 		run: async (tile) =>
 			resizeTile(
 				cv,
 				await loaded.model.run(tile),
-				tile.width * choice.scale,
-				tile.height * choice.scale,
+				tile.width * scale,
+				tile.height * scale,
 			),
 	};
 	return runModel(
@@ -116,30 +119,34 @@ async function upscale(
 		image,
 		{ model: atRequestedScale, backend: loaded.backend },
 		deps,
+		overlay,
 	);
 }
 
-async function route(
+function prepare(
 	cv: CV,
-	image: RgbImage,
+	input: RgbImage,
 	report: GateReport,
 	choice: RestoreChoice,
 	deps: RestoreDeps,
 ) {
 	switch (choice.damage) {
 		case "blocky8":
-		case "smeared": {
-			const offset = choice.damage === "blocky8" ? report.gridOffset : null;
-			const deblocked = await deblock(cv, image, offset ?? [0, 0], deps);
-			return choice.scale === 1
-				? deblocked
-				: upscale(cv, deblocked, choice, deps);
-		}
+			return deblock(cv, input, report.gridOffset ?? [0, 0], deps);
+		case "smeared":
+			return deblock(cv, input, [0, 0], deps);
 		case "palette":
-			return upscale(cv, depalette(cv, image), choice, deps);
+			return depalette(cv, input);
 		case "clean":
-			return upscale(cv, image, choice, deps);
+			return input;
 	}
+}
+
+function upscaleRole(choice: RestoreChoice, only: boolean): ModelRole {
+	if (choice.content === "graphic")
+		return only ? "upscaleGraphicBackProjection" : "upscaleGraphic";
+	const photos = { 1: "upscalePhoto", 2: "photo2x", 4: "photo4x" } as const;
+	return photos[choice.scale];
 }
 
 function dropAlpha(image: ImageData): RgbImage {
@@ -194,12 +201,56 @@ export async function restore(
 	if (choice.damage === "clean" && choice.scale === 1) return image;
 	const input = dropAlpha(image);
 	const upscaleOnly = choice.scale > 1 && choice.mode === "upscaleOnly";
-	const routed = upscaleOnly
-		? await upscale(cv, input, choice, deps, "upscaleGraphicBackProjection")
-		: await route(cv, input, report, choice, deps);
-	return attachAlpha(
+	const prepared = upscaleOnly
+		? input
+		: await prepare(cv, input, report, choice, deps);
+	const routed =
+		choice.scale > 1 || choice.damage === "palette"
+			? await upscale(
+					cv,
+					prepared,
+					choice.scale,
+					upscaleRole(choice, upscaleOnly),
+					deps,
+				)
+			: prepared;
+	const automatic = !upscaleOnly && choice.scale > 1;
+	const mask = automatic
+		? await detectText(
+				cv,
+				input,
+				await deps.loadModel("textDetector"),
+				deps.signal,
+				deps.onProgress,
+			)
+		: null;
+	const compressedPhoto =
+		choice.content === "photo" &&
+		choice.scale === 2 &&
+		(choice.damage === "blocky8" || choice.damage === "smeared");
+	if (mask && compressedPhoto) {
+		await upscale(cv, prepared, choice.scale, "upscalePhoto", deps, {
+			target: routed,
+			mask: resizeMask(cv, mask, routed),
+		});
+	}
+	const result = finish(
 		cv,
-		finish(cv, routed, input, upscaleOnly ? "clean" : choice.damage),
-		image,
+		routed,
+		input,
+		upscaleOnly ? "clean" : choice.damage,
 	);
+	if (mask && !compressedPhoto) {
+		await blendText(
+			input,
+			result,
+			mask.data,
+			mask.width,
+			mask.height,
+			choice.scale,
+			deps.signal,
+		);
+	}
+	if (automatic) deps.onTextCoverage?.(mask?.fraction ?? 0);
+	return attachAlpha(cv, result, image);
 }

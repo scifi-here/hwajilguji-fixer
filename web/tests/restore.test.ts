@@ -19,35 +19,45 @@ function rgba(
 	return { colorSpace: "srgb", width, height, data };
 }
 
-function nearestX4(tile: RgbImage): RgbImage {
-	const width = tile.width * 4;
-	const data = new Uint8ClampedArray(width * tile.height * 4 * 3);
+function nearest(tile: RgbImage, scale = 4): RgbImage {
+	const width = tile.width * scale;
+	const data = new Uint8ClampedArray(width * tile.height * scale * 3);
 	for (let index = 0; index < data.length / 3; index++) {
 		const source =
-			(Math.floor(index / width / 4) * tile.width +
-				Math.floor((index % width) / 4)) *
+			(Math.floor(index / width / scale) * tile.width +
+				Math.floor((index % width) / scale)) *
 			3;
 		data.set(tile.data.subarray(source, source + 3), index * 3);
 	}
-	return { width, height: tile.height * 4, data };
+	return { width, height: tile.height * scale, data };
 }
 
 const models: Record<ModelRole, TileModel> = {
+	textDetector: {
+		scale: 1,
+		multipleOf: 32,
+		run: async (tile) => ({
+			...tile,
+			data: new Uint8ClampedArray(tile.data.length),
+		}),
+	},
+	photo2x: { scale: 2, multipleOf: 1, run: async (tile) => nearest(tile, 2) },
+	photo4x: { scale: 4, multipleOf: 1, run: async (tile) => nearest(tile) },
 	deblock: { scale: 1, multipleOf: 16, run: async (tile) => tile },
 	upscalePhoto: {
 		scale: 4,
 		multipleOf: 1,
-		run: async (tile) => nearestX4(tile),
+		run: async (tile) => nearest(tile),
 	},
 	upscaleGraphicBackProjection: {
 		scale: 4,
 		multipleOf: 1,
-		run: async (tile) => nearestX4(tile),
+		run: async (tile) => nearest(tile),
 	},
 	upscaleGraphic: {
 		scale: 4,
 		multipleOf: 1,
-		run: async (tile) => nearestX4(tile),
+		run: async (tile) => nearest(tile),
 	},
 };
 

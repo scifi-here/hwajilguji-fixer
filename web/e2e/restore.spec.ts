@@ -104,7 +104,7 @@ test("upscale only skips the deblock model and is unavailable at 1x", async ({
 		timeout: 90_000,
 	});
 	await expect(page.getByTestId("after")).toHaveAttribute("width", "1024");
-	expect(models).toEqual(["/models/realesr-general-x4v3.onnx"]);
+	expect(models).toEqual(["/models/span-x4.onnx"]);
 });
 
 test("graphic upscale only loads the projected model and invalidates the download on a mode change", async ({
@@ -140,4 +140,128 @@ test("graphic upscale only loads the projected model and invalidates the downloa
 	expect(models).toEqual(["/models/realesr-animevideov3-backprojection.onnx"]);
 	await page.getByText("자동 복원", { exact: true }).click();
 	await expect(download).toHaveCount(0);
+});
+
+test("automatic photo restoration localizes a caption and recovers after cancellation", async ({
+	page,
+}) => {
+	test.setTimeout(120000);
+	const requests: string[] = [];
+	page.context().on("request", (req) => {
+		if (req.url().endsWith(".onnx")) requests.push(new URL(req.url()).pathname);
+	});
+	await page.goto("/");
+	const bytes = await page.evaluate(async () => {
+		await document.fonts.ready;
+		const canvas = document.createElement("canvas");
+		canvas.width = 320;
+		canvas.height = 168;
+		const ctx = canvas.getContext("2d");
+		if (!ctx) throw Error("missing canvas");
+		const bg = ctx.createLinearGradient(0, 0, 320, 168);
+		bg.addColorStop(0, "#568aab");
+		bg.addColorStop(1, "#394f52");
+		ctx.fillStyle = bg;
+		ctx.fillRect(0, 0, 320, 168);
+		ctx.fillStyle = "#182029";
+		ctx.fillRect(8, 104, 300, 48);
+		ctx.fillStyle = "white";
+		ctx.font = `25px ${getComputedStyle(document.body).fontFamily}`;
+		ctx.fillText("서울역 출발 15시 30분", 16, 138);
+		const blob = await new Promise<Blob>((resolve, reject) =>
+			canvas.toBlob((b) => (b ? resolve(b) : reject(Error("PNG")))),
+		);
+		return Array.from(new Uint8Array(await blob.arrayBuffer()));
+	});
+	await page.locator('input[type="file"]').setInputFiles({
+		name: "caption.png",
+		mimeType: "image/png",
+		buffer: Buffer.from(bytes),
+	});
+	await page.getByTestId("damage").waitFor();
+	await page
+		.getByRole("group", { name: "내용" })
+		.getByText("사진", { exact: true })
+		.click();
+	const run = page.getByRole("button", { name: "복원 시작" });
+	await run.click();
+	await page.getByRole("button", { name: "취소" }).click();
+	await expect(page.getByRole("alert")).toHaveText("취소했습니다.", {
+		timeout: 30000,
+	});
+	await run.click();
+	await expect(page.getByRole("link", { name: "PNG로 저장" })).toBeVisible({
+		timeout: 80000,
+	});
+	await expect(page.getByTestId("after")).toHaveAttribute("width", "640");
+	const coverage = await page.getByTestId("text-coverage").textContent();
+	const percent = Number(coverage?.match(/([\d.]+)%/)?.[1]);
+	expect(percent).toBeGreaterThan(1);
+	expect(percent).toBeLessThan(50);
+	expect(requests).toContain("/models/span-x2.onnx");
+	expect(requests).toContain("/models/ppocr-text-mask.onnx");
+	const jpeg = await page.evaluate(async (input) => {
+		const image = await createImageBitmap(new Blob([new Uint8Array(input)]));
+		const canvas = new OffscreenCanvas(image.width, image.height);
+		const ctx = canvas.getContext("2d");
+		if (!ctx) throw Error("missing canvas");
+		ctx.drawImage(image, 0, 0);
+		return Array.from(
+			new Uint8Array(
+				await (
+					await canvas.convertToBlob({ type: "image/jpeg", quality: 0.25 })
+				).arrayBuffer(),
+			),
+		);
+	}, bytes);
+	await page.locator("input[type=file]").setInputFiles({
+		name: "caption.jpg",
+		mimeType: "image/jpeg",
+		buffer: Buffer.from(jpeg),
+	});
+	await page
+		.getByRole("group", { name: "내용" })
+		.getByText("사진", { exact: true })
+		.click();
+	await run.click();
+	await page
+		.getByRole("link", { name: "PNG로 저장" })
+		.waitFor({ timeout: 80000 });
+	expect(requests).toContain("/models/dejpeg-v2.onnx");
+	expect(requests).toContain("/models/realesr-general-x4v3.onnx");
+});
+
+test("the downloaded PNG and result preview both retain opaque photo pixels", async ({
+	page,
+}) => {
+	await page.goto("/");
+	await page
+		.locator('input[type="file"]')
+		.setInputFiles(fixturePath("clean.png"));
+	await page.getByText("1x", { exact: true }).click();
+	await page.getByRole("button", { name: "복원 시작" }).click();
+	const link = page.getByRole("link", { name: "PNG로 저장" });
+	await expect(link).toBeVisible({ timeout: 60_000 });
+	const pixel = await link.evaluate(async (element) => {
+		const response = await fetch((element as HTMLAnchorElement).href);
+		const bitmap = await createImageBitmap(await response.blob());
+		try {
+			const canvas = new OffscreenCanvas(1, 1);
+			const ctx = canvas.getContext("2d", { willReadFrequently: true });
+			if (!ctx) throw Error("missing 2d context");
+			ctx.drawImage(bitmap, 0, 0);
+			return Array.from(ctx.getImageData(0, 0, 1, 1).data);
+		} finally {
+			bitmap.close();
+		}
+	});
+	expect(pixel[3]).toBe(255);
+	await expect
+		.poll(() =>
+			page.getByTestId("after").evaluate((canvas: HTMLCanvasElement) => {
+				const ctx = canvas.getContext("2d");
+				return Array.from(ctx?.getImageData(0, 0, 1, 1).data ?? []);
+			}),
+		)
+		.toEqual(pixel);
 });
