@@ -80,6 +80,19 @@ We checked 190 reference characters across two screen crops (settings and a docu
 
 The tool selected no regions on 32 inputs from eight Kodak photos enlarged at both scales, with and without JPEG compression. The small gain at 4x and the lower error count from bicubic alone are reasons to keep this as a local experiment.
 
+### Photo upscaler comparison
+
+We used the centre 256×192 pixels of Kodak images 04–11, box-downsampled by 2 or 4. Each input was saved losslessly or as a quality 25 JPEG with 4:2:0 chroma subsampling. We compared the app's PNG output in Chrome on single-threaded WebAssembly. Each cell is the mean RGB PSNR in dB across eight images, including their borders.
+
+| Input | Current automatic | SPAN automatic | Swin2SR direct | Swin2SR automatic |
+|---|---:|---:|---:|---:|
+| Lossless 2x | 27.76 | 29.44 | — | — |
+| Lossless 4x | 23.91 | 25.63 | — | — |
+| JPEG 2x | 24.77 | 26.60 | — | — |
+| JPEG 4x | 21.54 | 23.36 | 23.00 | 22.85 |
+
+The automatic routes used the same damage gate, deblocker and finish step. We swapped the photo model for the 48-channel SPAN checkpoint at the requested scale or the Swin2SR compressed 4x checkpoint. The direct Swin2SR route skipped deblocking and used the clean finish. For JPEG 4x, mean SSIM was 0.554 with the current route, 0.575 with SPAN, 0.553 with Swin2SR direct and 0.542 with Swin2SR automatic. The Swin2SR export accepted one fixed 96×80 padded tile in this experiment. The SPAN exports had dynamic tile sizes and were 1.70 MB at 2x and 1.76 MB at 4x. [Per-image results](docs/upscale-comparison.csv) · [SPAN weights](https://github.com/hongyuanyu/SPAN) · [Swin2SR weights](https://github.com/mv-lab/swin2sr/releases/tag/v0.0.1)
+
 ## Run locally
 
 Prerequisites: Node 26.13.1, pnpm 12.21.0, and uv 0.13.9 or newer (uv installs Python 3.14.10). The `corpus` and `export` commands download the Kodak images and the model weights, so they need network access. An NVIDIA GPU speeds up the Python evaluation but is not required. The Python tools run only through uv.
