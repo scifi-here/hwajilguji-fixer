@@ -101,7 +101,7 @@ The automatic routes used the same damage gate, deblocker and finish step. We sw
 
 Automatic 2x and 4x use native SPAN on photos. Text detection runs separately on the input, including captions within photos and documents classified as graphics. PP-OCRv3 returns a probability map. For 2x photos with block or smear damage, the general Real-ESRGAN model processes only tiles that intersect the detected text. Its pixels are blended into the SPAN output inside the mask before colour matching. Other text regions use cubic interpolation of the input with feathered edges after colour matching. All models run locally. The OCR comparison command above is an evaluation tool.
 
-We compared PNGs downloaded from the previous automatic mode (`ed0c74c`) and this pipeline in Chrome with single-threaded WASM. RGB PSNR and SSIM include image borders. Kodak 04–11 provided eight 256×192 crops, each tested at two scales and with or without JPEG quality 25. On five Korean screens (190 characters per scale), Tesseract read fixed transcribed lines. Counts include insertions, deletions and substitutions. The detector and the scoring recognizer are different models.
+We compared PNGs downloaded from the previous automatic mode (`ed0c74c`) and the regional restoration pipeline at `1f81860` in Chrome with single-threaded WASM. RGB PSNR and SSIM include image borders. Kodak 04–11 provided eight 256×192 crops, each tested at two scales and with or without JPEG quality 25. On five Korean screens (190 characters per scale), Tesseract read fixed transcribed lines. Counts include insertions, deletions and substitutions. The detector and the scoring recognizer are different models.
 
 | Test | Previous | Current | Bicubic |
 |---|---:|---:|---:|
@@ -117,6 +117,19 @@ After fixing the model routes, we evaluated four further Kodak photos (18–21).
 ![Korean photo caption and settings crop side by side in the reference, previous output and regional restoration](docs/regional-restoration.png)
 
 In one desktop Chrome run on single-threaded WASM, we timed the interval from starting repair to the PNG link appearing. The median of four warm runs on a lossless Kodak 07 crop fell from 1.40 to 0.61 seconds at 2x and from 0.48 to 0.22 seconds at 4x. On the Kodak 12 JPEG with a caption, 2x went from 3.87 to 4.65 seconds with both photo models active. At 4x it went from 1.09 to 0.64 seconds. Each scale used its own downsampled input of the same reference. A separate 3000×2000 to 6000×4000 run completed in about 9 seconds on a laptop RTX 3060 in desktop Chrome and about four minutes on single-threaded WASM. Chrome reported 22 distinct tile progress values during the GPU run. On a captioned JPEG the same GPU used WASM for deblocking, and the maximum output RGB difference from WASM was 3 levels out of 255.
+
+### Compression halos around lettering
+
+Automatic 2x and 4x restoration also checks the background around detected text. For images with block or smear damage, or JPEGs below the existing quality threshold, it samples nearby flat colours and moves small deviations toward the dominant background. The pass skips conflicting background colours and limits correction near strong strokes. It runs inside the current text mask, before the original alpha plane is reattached.
+
+We compared browser PNGs against the preceding version (`1f81860`). The primary measure is mean absolute RGB error on known background pixels within two low-resolution pixels of the original lettering. Each input has equal weight. We froze six design scenes and six additional scenes, tested both scales, and measured two separately captured app headings after JPEG compression. The caption text was also scored with Korean Tesseract.
+
+| Samples | 2x ring RGB error | 4x ring RGB error |
+|---|---:|---:|
+| Six separately evaluated scenes | 16.29 to 10.29 | 20.91 to 19.21 |
+| Two Chrome captures from this app | 11.92 to 6.96 | 27.95 to 24.37 |
+
+The held-out lines contain 52 characters per scale. Character errors went from 0 to 2 at 2x and from 42 to 39 at 4x. RGB error around the glyphs measures the compression fringe. OCR measures how much of the wording can be recovered. [Image report](docs/text-halo-report.pdf) · [Per-image measurements](docs/text-halo-quality.csv).
 
 ## Run locally
 
