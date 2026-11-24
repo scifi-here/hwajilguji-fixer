@@ -60,6 +60,26 @@ WebP, AVIF, and HEIC go through the JPEG deblocking model and gain PSNR in every
 
 The damage gate names the right damage class for 31 of 32 test fixtures (96.9%) and 359 of 384 corpus images (93.5%). On the corpus, 16 smeared images read as blocky, 7 blocky images read as smeared, and 2 clean images read as blocky. Both numbers come from running `inspect` on the images: the fixtures that `web/tests/gate.test.ts` reads (the test requires at least 90%), and every image that `hwajilguji-tools corpus` writes plus the 24 originals. Use the damage override in the page when the gate is wrong.
 
+### Korean text after upscaling
+
+The local `text-regions` tool takes the original input and a 2x or 4x PNG saved from the app. It compares Tesseract's Korean word boxes on the restored image and a bicubic enlargement. A word with at least two Hangul syllables needs confidence 75 and a 15-point lead over the existing pixels in its box. The tool blends the bicubic pixels at those boxes and preserves the restored alpha channel.
+
+Install the Tesseract executable and its Korean language data to run it. Use `--tessdata-dir` if the data lives outside Tesseract's search path.
+
+```sh
+uv run --frozen --project tools hwajilguji-tools text-regions source.png restored.png text.png
+```
+
+We checked 190 reference characters across two screen crops (settings and a document) and three rendered samples (chat, receipt and subtitles). Each sample was box-downsampled at both scales. The table counts insertions, deletions and substitutions on transcribed lines, ignoring spaces and punctuation. Tesseract read all five originals without errors. The same recognizer supplied the word boxes and scored the lines.
+
+| Output | 2x errors | 4x errors |
+|---|---:|---:|
+| Current automatic restoration | 56 | 199 |
+| Automatic restoration with text regions patched | 45 | 197 |
+| Bicubic alone | 26 | 168 |
+
+The tool selected no regions on 32 inputs from eight Kodak photos enlarged at both scales, with and without JPEG compression. The small gain at 4x and the lower error count from bicubic alone are reasons to keep this as a local experiment.
+
 ## Run locally
 
 Prerequisites: Node 26.13.1, pnpm 12.21.0, and uv 0.13.9 or newer (uv installs Python 3.14.10). The `corpus` and `export` commands download the Kodak images and the model weights, so they need network access. An NVIDIA GPU speeds up the Python evaluation but is not required. The Python tools run only through uv.
