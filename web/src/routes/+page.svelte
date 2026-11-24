@@ -63,6 +63,9 @@ let damageChoice = $state<DamageClass | "auto">("auto");
 let contentChoice = $state<ContentKind | "auto">("auto");
 let progress = $state({ done: 0, total: 0 });
 let elapsedTime = $state(0);
+let resultWidth = $state(0);
+let resultHeight = $state(0);
+let resultSize = $state(0);
 let startTime = 0;
 
 $effect(() => {
@@ -154,6 +157,9 @@ elapsedTime = (performance.now() - startTime) / 1000;
 	resultUrl = URL.createObjectURL(png);
 	phase = "done";
 	const bitmap = await createImageBitmap(png);
+resultWidth = bitmap.width;
+resultHeight = bitmap.height;
+resultSize = png.size;
 	await tick();
 	if (afterCanvas === undefined) return;
 	afterCanvas.width = bitmap.width;
@@ -369,8 +375,16 @@ onMount(() => {
 <span>경과 시간: {elapsedTime.toFixed(1)}초</span>
 					</div>
 				{/if}
-{#if phase === "done"}
-    <p>복원 소요 시간: {elapsedTime.toFixed(1)}초</p>
+{#if phase === "done" && inspection !== null && resultWidth > 0}
+    <div>
+        <h3>복원 결과 상세 정보</h3>
+        <p>원본 해상도: {inspection.width} × {inspection.height}</p>
+        <p>복원 해상도: {resultWidth} × {resultHeight}</p>
+        <p>확대 배율: {(resultWidth / inspection.width).toFixed(1)}배</p>
+        <p>결과 파일 형식: PNG</p>
+        <p>결과 파일 용량: {(resultSize / 1024 / 1024).toFixed(2)} MB</p>
+        <p>복원 소요 시간: {elapsedTime.toFixed(1)}초</p>
+    </div>
 {/if}
 			{/if}
 
