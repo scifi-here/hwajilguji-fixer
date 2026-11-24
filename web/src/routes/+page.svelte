@@ -109,7 +109,18 @@ function openFirst(files: FileList | null | undefined): void {
 		phase = "empty";
 	});
 }
-
+async function loadExample(filename: string): Promise<void> {
+    try {
+        const response = await fetch(`/examples/${filename}`);
+        if (!response.ok) throw new Error("예시 이미지를 불러올 수 없습니다.");
+        const blob = await response.blob();
+        const file = new File([blob], filename, { type: "image/jpeg" });
+        await open(file);
+    } catch (error) {
+        failure = error instanceof Error ? error.message : String(error);
+        phase = "empty";
+    }
+}
 async function showInspection(next: Inspection): Promise<void> {
 	inspection = next;
 	scale =
@@ -233,11 +244,34 @@ onMount(() => {
 					onchange={(event) => openFirst(event.currentTarget.files)}
 				/>
 			</label>
+{#if phase === "inspecting"}
+    <p class="status">이미지를 분석하는 중...</p>
+{/if}
+<div class="examples">
+    <h3>예시 이미지로 체험하기</h3>
+    <p>이미지를 클릭하여 화질 복원을 체험해 보세요.</p>
+<p>
+    <a href="/examples/ATTRIBUTION.md" target="_blank" rel="noopener noreferrer">
+        예시 이미지 출처 및 라이선스
+    </a>
+</p>
+    <div style="display: flex; gap: 10px;">
+        <button type="button" onclick={() => loadExample("dog-degraded.jpeg")} disabled={busy} style="flex: 1; min-width: 0;">
+            <img src="/examples/dog-degraded.jpeg" alt="강아지 예시" style="width: 100%; height: 80px; object-fit: cover;" />
+            <span>강아지</span>
+        </button>
 
-			{#if phase === "inspecting"}
-				<p class="status">이미지를 분석하는 중…</p>
-			{/if}
+        <button type="button" onclick={() => loadExample("landscape-degraded.jpeg")} disabled={busy} style="flex: 1; min-width: 0;">
+            <img src="/examples/landscape-degraded.jpeg" alt="풍경 예시" style="width: 100%; height: 80px; object-fit: cover;" />
+            <span>풍경</span>
+        </button>
 
+        <button type="button" onclick={() => loadExample("illustration-degraded.jpeg")} disabled={busy} style="flex: 1; min-width: 0;">
+            <img src="/examples/illustration-degraded.jpeg" alt="일러스트 예시" style="width: 100%; height: 80px; object-fit: cover;" />
+            <span>일러스트</span>
+        </button>
+    </div>
+</div>
 			{#if inspection !== null}
 				<dl class="report" aria-label="분석 결과">
 					<dt>형식</dt>
