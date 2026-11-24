@@ -9,7 +9,7 @@ async function decodeInPage(page: Page, name: string): Promise<number[]> {
 		async (bytes) => {
 			const bitmap = await createImageBitmap(new Blob([new Uint8Array(bytes)]));
 			const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-			const context = canvas.getContext("2d");
+			const context = canvas.getContext("2d", { willReadFrequently: true });
 			if (context === null) throw new Error("2d context unavailable");
 			context.drawImage(bitmap, 0, 0);
 			return Array.from(
@@ -59,7 +59,7 @@ test("a QF 10 JPEG gains at least 0.5 dB PSNR against its clean original after a
 	const restored = await page
 		.getByTestId("after")
 		.evaluate((canvas: HTMLCanvasElement) => {
-			const context = canvas.getContext("2d");
+			const context = canvas.getContext("2d", { willReadFrequently: true });
 			if (context === null) throw new Error("2d context unavailable");
 			return Array.from(
 				context.getImageData(0, 0, canvas.width, canvas.height).data,
@@ -156,7 +156,7 @@ test("automatic photo restoration localizes a caption and recovers after cancell
 		const canvas = document.createElement("canvas");
 		canvas.width = 320;
 		canvas.height = 168;
-		const ctx = canvas.getContext("2d");
+		const ctx = canvas.getContext("2d", { willReadFrequently: true });
 		if (!ctx) throw Error("missing canvas");
 		const bg = ctx.createLinearGradient(0, 0, 320, 168);
 		bg.addColorStop(0, "#568aab");
@@ -203,7 +203,7 @@ test("automatic photo restoration localizes a caption and recovers after cancell
 	const jpeg = await page.evaluate(async (input) => {
 		const image = await createImageBitmap(new Blob([new Uint8Array(input)]));
 		const canvas = new OffscreenCanvas(image.width, image.height);
-		const ctx = canvas.getContext("2d");
+		const ctx = canvas.getContext("2d", { willReadFrequently: true });
 		if (!ctx) throw Error("missing canvas");
 		ctx.drawImage(image, 0, 0);
 		return Array.from(
@@ -259,7 +259,7 @@ test("the downloaded PNG and result preview both retain opaque photo pixels", as
 	await expect
 		.poll(() =>
 			page.getByTestId("after").evaluate((canvas: HTMLCanvasElement) => {
-				const ctx = canvas.getContext("2d");
+				const ctx = canvas.getContext("2d", { willReadFrequently: true });
 				return Array.from(ctx?.getImageData(0, 0, 1, 1).data ?? []);
 			}),
 		)
