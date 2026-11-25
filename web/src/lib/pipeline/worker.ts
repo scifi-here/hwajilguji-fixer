@@ -15,6 +15,8 @@ export type WorkerRequest =
 	  }
 	| { readonly type: "cancel" };
 
+export type RunBackend = Backend | "mixed";
+
 export type WorkerResponse =
 	| {
 			readonly type: "report";
@@ -25,8 +27,14 @@ export type WorkerResponse =
 			readonly height: number;
 			readonly preview: ImageBitmap;
 	  }
+	| { readonly type: "locateText" }
 	| { readonly type: "progress"; readonly done: number; readonly total: number }
-	| { readonly type: "done"; readonly png: Blob; readonly backend: Backend }
+	| {
+			readonly type: "done";
+			readonly png: Blob;
+			readonly backend: RunBackend;
+			readonly textCoverage: number | null;
+	  }
 	| { readonly type: "error"; readonly name: string; readonly message: string };
 
 type Inspected = { readonly image: ImageData; readonly report: GateReport };
@@ -67,7 +75,7 @@ async function inspectFile(buffer: ArrayBuffer): Promise<void> {
 
 async function encodePng(image: RgbaImage): Promise<Blob> {
 	const canvas = new OffscreenCanvas(image.width, image.height);
-	const context = canvas.getContext("2d");
+	const context = canvas.getContext("2d", { willReadFrequently: true });
 	if (context === null) throw new Error("2d context unavailable");
 	context.putImageData(
 		new ImageData(image.data, image.width, image.height),
@@ -87,7 +95,8 @@ async function restoreInspected(
 	try {
 		backendReady ??= createBackend();
 		const [cv, preferred] = await Promise.all([cvReady, backendReady]);
-		let used = preferred;
+		const used = new Set<Backend>();
+		let textCoverage: number | null = null;
 		const result = await restore(
 			cv,
 			inspected.image,
@@ -95,15 +104,25 @@ async function restoreInspected(
 			choice,
 			{
 				loadModel: async (role) => {
+					if (role === "textDetector") post({ type: "locateText" });
 					const loaded = await loadModel(role, preferred, assetBase);
-					used = loaded.backend;
+					used.add(loaded.backend);
 					return loaded;
 				},
 				signal: controller.signal,
+				onTextCoverage: (value) => {
+					textCoverage = value;
+				},
 				onProgress: (done, total) => post({ type: "progress", done, total }),
 			},
 		);
-		post({ type: "done", png: await encodePng(result), backend: used });
+		post({
+			type: "done",
+			png: await encodePng(result),
+			backend:
+				used.size > 1 ? "mixed" : (used.values().next().value ?? preferred),
+			textCoverage,
+		});
 	} finally {
 		running = null;
 	}

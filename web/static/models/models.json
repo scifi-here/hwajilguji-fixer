@@ -1,4 +1,55 @@
 {
+  "photo2x": {
+    "file": "span-x2.onnx",
+    "sha256": "c8c41a90f56620931537d816f3c5b1037a1b56bc1040ba19c298140ee000c013",
+    "bytes": 1703724,
+    "inputName": "input",
+    "outputName": "output",
+    "elementType": "float32",
+    "scale": 2,
+    "multipleOf": 1,
+    "license": "Apache-2.0",
+    "source": "https://objectstorage.us-phoenix-1.oraclecloud.com/n/ax6ygfvpvzka/b/open-modeldb-files/o/2x-spanx2-ch48.pth",
+    "range": [
+      0,
+      1
+    ],
+    "layout": "NCHW-RGB"
+  },
+  "photo4x": {
+    "file": "span-x4.onnx",
+    "sha256": "41ec0eaeab7678463b050fdec7728d1fde8434d6fd4cf673b21f838c5083d89e",
+    "bytes": 1766078,
+    "inputName": "input",
+    "outputName": "output",
+    "elementType": "float32",
+    "scale": 4,
+    "multipleOf": 1,
+    "license": "Apache-2.0",
+    "source": "https://objectstorage.us-phoenix-1.oraclecloud.com/n/ax6ygfvpvzka/b/open-modeldb-files/o/4x-spanx4-ch48.pth",
+    "range": [
+      0,
+      1
+    ],
+    "layout": "NCHW-RGB"
+  },
+  "textDetector": {
+    "file": "ppocr-text-mask.onnx",
+    "sha256": "6c33c3508c8c42e8555453cf80f99011a0df267b9f4bb188c25723de8fdd512f",
+    "bytes": 2423831,
+    "inputName": "rgb",
+    "outputName": "mask",
+    "elementType": "float32",
+    "scale": 1,
+    "multipleOf": 32,
+    "license": "Apache-2.0",
+    "source": "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/text_detection_ppocr/text_detection_cn_ppocrv3_2023may.onnx",
+    "range": [
+      0,
+      1
+    ],
+    "layout": "NCHW-RGB"
+  },
   "deblock": {
     "file": "dejpeg-v2.onnx",
     "sha256": "cc345b6ce3a4b70856358911fed69ccebe939c1381aa94d969f15e2d81394690",
@@ -18,8 +69,8 @@
   },
   "upscalePhoto": {
     "file": "realesr-general-x4v3.onnx",
-    "sha256": "0fcdcac66c5f27b730e9fa57c49a504fa91f9bd5360b1319d9fab3ac53999711",
-    "bytes": 4949877,
+    "sha256": "bff55ec620d48f31e8bf75c46a367c95a51080b1f8f3849507ca186c401aed26",
+    "bytes": 4926331,
     "inputName": "input",
     "outputName": "output",
     "elementType": "float32",
@@ -35,8 +86,8 @@
   },
   "upscaleGraphic": {
     "file": "realesr-animevideov3.onnx",
-    "sha256": "fcae8b5ea320fb53c2d896c6b87c51f14fe20b38e241d0625b3662e8b8ca225d",
-    "bytes": 2537781,
+    "sha256": "0e1c86a3b0f8d912819692084f9533281908079e3b2da4376a23289718b98637",
+    "bytes": 2525131,
     "inputName": "input",
     "outputName": "output",
     "elementType": "float32",

@@ -9,7 +9,11 @@ import { MAX_OUTPUT_PIXELS } from "#lib/pipeline/limits.ts";
 import type { RestoreMode, Scale } from "#lib/pipeline/restore.ts";
 import type { Backend } from "#lib/pipeline/session.ts";
 import type { Format } from "#lib/pipeline/sniff.ts";
-import type { WorkerRequest, WorkerResponse } from "#lib/pipeline/worker.ts";
+import type {
+	RunBackend,
+	WorkerRequest,
+	WorkerResponse,
+} from "#lib/pipeline/worker.ts";
 
 type Inspection = {
 	readonly report: GateReport;
@@ -42,8 +46,9 @@ const CONTENT_NAMES: Record<ContentKind, string> = {
 	photo: "사진",
 	graphic: "글자·그림",
 };
-const BACKEND_NAMES: Record<Backend, string> = {
+const BACKEND_NAMES: Record<RunBackend, string> = {
 	webgpu: "WebGPU",
+	mixed: "WebGPU + WASM",
 	wasm: "WASM",
 };
 const SCALES: readonly Scale[] = [1, 2, 4];
@@ -69,6 +74,8 @@ let elapsedTime = $state(0);
 let resultWidth = $state(0);
 let resultHeight = $state(0);
 let resultSize = $state(0);
+let locatingText = $state(false);
+let textCoverage = $state<number | null>(null);
 let startTime = 0;
 
 $effect(() => {
@@ -82,7 +89,7 @@ $effect(() => {
 });
 let failure = $state<string | null>(null);
 let resultUrl = $state<string | null>(null);
-let usedBackend = $state<Backend | null>(null);
+let usedBackend = $state<RunBackend | null>(null);
 let divider = $state(50);
 let dragging = $state(false);
 let beforeCanvas = $state<HTMLCanvasElement>();
@@ -112,6 +119,8 @@ function send(request: WorkerRequest, transfer: Transferable[] = []): void {
 function clearResult(): void {
 	if (resultUrl !== null) URL.revokeObjectURL(resultUrl);
 	resultUrl = null;
+	textCoverage = null;
+	locatingText = false;
 	usedBackend = null;
 	progress = { done: 0, total: 0 };
 }
@@ -158,13 +167,20 @@ async function showInspection(next: Inspection): Promise<void> {
 	if (beforeCanvas === undefined) return;
 	beforeCanvas.width = next.width;
 	beforeCanvas.height = next.height;
-	beforeCanvas.getContext("2d")?.drawImage(next.preview, 0, 0);
+	beforeCanvas
+		.getContext("2d", { willReadFrequently: true })
+		?.drawImage(next.preview, 0, 0);
 }
 
-async function showResult(png: Blob, backend: Backend): Promise<void> {
+async function showResult(
+	png: Blob,
+	backend: RunBackend,
+	coverage: number | null,
+): Promise<void> {
 	clearResult();
 	elapsedTime = (performance.now() - startTime) / 1000;
 	usedBackend = backend;
+	textCoverage = coverage;
 	resultUrl = URL.createObjectURL(png);
 	phase = "done";
 	const bitmap = await createImageBitmap(png);
@@ -175,7 +191,9 @@ async function showResult(png: Blob, backend: Backend): Promise<void> {
 	if (afterCanvas === undefined) return;
 	afterCanvas.width = bitmap.width;
 	afterCanvas.height = bitmap.height;
-	afterCanvas.getContext("2d")?.drawImage(bitmap, 0, 0);
+	afterCanvas
+		.getContext("2d", { willReadFrequently: true })
+		?.drawImage(bitmap, 0, 0);
 	bitmap.close();
 }
 
@@ -191,12 +209,16 @@ function receive(message: WorkerResponse): void {
 				fail("Error", String(error)),
 			);
 			break;
+		case "locateText":
+			locatingText = true;
+			progress = { done: 0, total: 0 };
+			break;
 		case "progress":
 			progress = { done: message.done, total: message.total };
 			break;
 		case "done":
-			showResult(message.png, message.backend).catch((error: unknown) =>
-				fail("Error", String(error)),
+			showResult(message.png, message.backend, message.textCoverage).catch(
+				(error: unknown) => fail("Error", String(error)),
 			);
 			break;
 		case "error":
@@ -355,7 +377,7 @@ onMount(() => {
 						<legend>처리 방식</legend>
 						<details>
 							<summary>처리 방식 도움말</summary>
-							<p>자동 복원은 손상을 보정한 뒤 확대합니다. 확대만은 압축 보정을 건너뛰고 선택한 사진 또는 글자·그림 모델로 확대합니다.</p>
+							<p>자동 복원은 손상을 보정한 뒤 확대하고, 글자 위치를 찾아 따로 처리합니다. 압축 손상이 있는 사진의 2배 확대에서는 글자 부분을 복원하고, 그 밖의 확대에서는 해당 영역의 원본 픽셀을 보간합니다. 압축된 글자 주위의 배경색이 고르면 획 주변의 얼룩도 줄입니다. 확대만은 압축 보정을 건너뛰고 선택한 사진 또는 글자·그림 모델로 확대합니다.</p>
 						</details>
 						<div class="segments">
 							<label class="segment">
@@ -423,7 +445,7 @@ onMount(() => {
 				{#if phase === "running"}
 					<div class="progress">
 						<progress aria-label="타일 진행률" max={Math.max(progress.total, 1)} value={progress.done}></progress>
-						<span>{actionLabel} 진행률 {progress.total > 0 ? Math.round(progress.done / progress.total * 100) : 0}% ({progress.done} / {progress.total})</span>
+						<span>{locatingText ? "글자 영역 처리" : actionLabel} 진행률 {progress.total > 0 ? Math.round(progress.done / progress.total * 100) : 0}% ({progress.done} / {progress.total})</span>
 <span>경과 시간: {elapsedTime.toFixed(1)}초</span>
 					</div>
 				{/if}
@@ -434,6 +456,9 @@ onMount(() => {
         <p>{actionLabel} 해상도: {resultWidth} × {resultHeight}</p>
         <p>확대 배율: {(resultWidth / inspection.width).toFixed(1)}배</p>
         <p>결과 파일 형식: PNG</p>
+        {#if textCoverage !== null}
+            <p data-testid="text-coverage">글자 영역 보정: {textCoverage === 0 ? "검출된 영역 없음" : textCoverage < 0.001 ? "0.1% 미만" : (100 * textCoverage).toFixed(1) + "%"}</p>
+        {/if}
         <p>결과 파일 용량: {(resultSize / 1024 / 1024).toFixed(2)} MB</p>
         <p>{actionLabel} 소요 시간: {elapsedTime.toFixed(1)}초</p>
     </div>

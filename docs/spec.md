@@ -78,7 +78,9 @@ The user chooses a scale of 1x, 2x, or 4x. The default is 2x. The user MAY overr
 
 The grid alignment reflect-pads the left side by `(8 - offsetX) mod 8` and the top by `(8 - offsetY) mod 8`. Block edges then sit on multiples of 8.
 
-The upscale step MUST use the graphic model for `graphic` content and the photo model otherwise. For graphics in **확대만**, the model MUST clamp the pretrained 4x prediction to [0, 1], average non-overlapping 4×4 cells, subtract these averages from the input RGB, then add the half-pixel bilinear 4x enlargement of that difference to the clamped prediction. All upscalers scale by 4. The product MUST resize each 4x tile to the requested scale before it writes the tile into the output.
+The upscale step MUST use the graphic model for `graphic` content and the photo model otherwise. For graphics in **확대만**, the model MUST clamp the pretrained 4x prediction to [0, 1], average non-overlapping 4×4 cells, subtract these averages from the input RGB, then add the half-pixel bilinear 4x enlargement of that difference to the clamped prediction. For photos at 2x and 4x, the product MUST use the native-scale SPAN model. The general 4x photo model serves the 1x palette route and the damaged 2x text regions described below. Graphic models run at 4x and MUST reduce each tile to the requested size.
+
+At 2x and 4x in automatic mode, the product MUST locate text independently of the damage and content labels. Run the PP-OCRv3 detector on a proportional preview of the input (up to 3x, longest edge 1536 pixels, area 1.2 million pixels). Use 384-pixel cores, 32 pixels of context and a multiple of 32. Build a feathered mask from detection contours. For 2x photos tagged `blocky8` or `smeared`, run the general photo model on the prepared tiles that intersect the mask, blend the predictions within the mask, then apply the shared finish. For all other detected text, blend cubic interpolation of the original RGB into the finished image inside the mask. After blending the text regions, automatic restoration MUST reduce compression fringes on locally uniform backgrounds inside the detected mask for block or smear damage, and for JPEGs below the gate’s quality threshold. Strong strokes and conflicting background colours MUST be protected. The result panel reports the coverage. Skip this pass in **확대만** and at 1x.
 
 Models see RGB only. The product MUST resize the alpha plane with cubic interpolation and reattach it.
 
@@ -118,9 +120,11 @@ UI. The UI text is Korean. The UI has one screen. Colours, spacing, and radii MU
 | Role | File | Source | License | Size |
 |---|---|---|---|---|
 | `deblock` | `dejpeg-v2.onnx` | `Miosp/dejpeg` release `v2.0.0` | Apache-2.0 | 15,376,612 bytes, float32 input and output (computes in fp16 inside), opset 17, dynamic axes, sides a multiple of 16, blind |
-| `upscalePhoto` | `realesr-general-x4v3.onnx` | Exported by `tools` from the official `realesr-general-x4v3.pth` (4,885,111 bytes) of `xinntao/Real-ESRGAN` | BSD-3-Clause | 4,949,877 bytes, fp32, x4 |
-| `upscaleGraphic` | `realesr-animevideov3.onnx` | Exported by `tools` from the official `realesr-animevideov3.pth` (2,504,012 bytes) | BSD-3-Clause | 2,537,781 bytes, fp32, x4 |
+| `upscalePhoto` | `realesr-general-x4v3.onnx` | Exported by `tools` from the official `realesr-general-x4v3.pth` (4,885,111 bytes) of `xinntao/Real-ESRGAN` | BSD-3-Clause | 4,926,331 bytes, fp32, x4 |
+| `upscaleGraphic` | `realesr-animevideov3.onnx` | Exported by `tools` from the official `realesr-animevideov3.pth` (2,504,012 bytes) | BSD-3-Clause | 2,525,131 bytes, fp32, x4 |
 | `upscaleGraphicBackProjection` | `realesr-animevideov3-backprojection.onnx` | Same graphic weights with one back-projection step for **확대만** | BSD-3-Clause | 2,535,743 bytes, fp32, x4 |
+| `photo2x` / `photo4x` | `span-x2.onnx` / `span-x4.onnx` | [SPAN](https://github.com/hongyuanyu/SPAN), 48-channel EMA weights | Apache-2.0 | 1,703,724 / 1,766,078 bytes, fp32 |
+| `textDetector` | `ppocr-text-mask.onnx` | [OpenCV Zoo PP-OCRv3](https://github.com/opencv/opencv_zoo/tree/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/text_detection_ppocr) | Apache-2.0 | 2,423,831 bytes, fp32 |
 
 `Miosp/dejpeg` is young: 6 stars, one author, self-reported benchmarks, and unpublished v2 training code. The team MUST measure the model before it ships. The adoption gate is in the acceptance criteria. If the model fails the gate, the team MUST replace it with FBCNN colour (`jiaxi-jiang/FBCNN`, Apache-2.0, `fbcnn_color.pth`, 287,755,111 bytes). The replacement is about 143 MB in fp32, so the UI MUST state the download size before first use.
 
@@ -128,7 +132,7 @@ The `tools` package vendors the `SRVGGNetCompact` network class from `xinntao/Re
 
 The repository MUST ship `web/static/models/NOTICE.md`. It lists each model file with its source URL, license name, SHA-256, and the full license text.
 
-`models.json` is the contract between the Python export and the browser loader. Each entry has `file`, `sha256`, `bytes`, `inputName`, `outputName`, `elementType`, `scale`, `multipleOf`, `range`, `layout`, `license`, and `source`. The roles are `deblock`, `upscalePhoto`, `upscaleGraphic`, and `upscaleGraphicBackProjection`.
+`models.json` is the contract between the Python export and the browser loader. Each entry has `file`, `sha256`, `bytes`, `inputName`, `outputName`, `elementType`, `scale`, `multipleOf`, `range`, `layout`, `license`, and `source`. The roles are `deblock`, `photo2x`, `photo4x`, `upscalePhoto`, `upscaleGraphic`, `upscaleGraphicBackProjection`, and `textDetector`.
 
 `heic-to` is LGPL-3.0. The product MUST load it only when the user opens a HEIC file. The README MUST state the HEVC patent note.
 
@@ -180,7 +184,7 @@ Open items:
 - The `microsoft/onnxruntime` and `microsoft/onnxscript` repositories return 404. The cause is unconfirmed. Registry packages still install. Keep the lockfile hashes.
 - The identifiers GHSA-jg5c-8mvg-5wph and GHSA-v32g-mr63-3j83 from the research notes are unconfirmed.
 - The system uv is 0.12.20 and MUST be upgraded to 0.13.4 or newer.
-- The manual WebGPU check (acceptance criterion 5) needs a browser with WebGPU. It has not run.
+- Chrome on a laptop RTX 3060 recognized the four damage fixtures in criterion 5. Clean 1x output matched the source pixels. The 3000×2000 photo completed at 2x on hardware WebGPU and on single-threaded WASM. The GPU run reported 22 distinct tile progress values.
 
 ## Acceptance criteria
 

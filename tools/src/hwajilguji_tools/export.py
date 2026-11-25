@@ -10,10 +10,18 @@ import onnx
 import torch
 
 
+from hwajilguji_tools.span import Span
+from hwajilguji_tools.text_detector import export_detector
 from hwajilguji_tools.srvgg import GraphicBackProjection, SRVGGNetCompact
 
 type Role = Literal[
-    "deblock", "upscalePhoto", "upscaleGraphic", "upscaleGraphicBackProjection"
+    "deblock",
+    "upscalePhoto",
+    "photo2x",
+    "photo4x",
+    "textDetector",
+    "upscaleGraphic",
+    "upscaleGraphicBackProjection",
 ]
 type Entry = dict[str, str | int | list[int]]
 
@@ -62,7 +70,48 @@ GRAPHIC = ShippedModel(
     16,
 )
 
+SPAN_FILES = "https://objectstorage.us-phoenix-1.oraclecloud.com/n/ax6ygfvpvzka/b/open-modeldb-files/o"
+ZOO = "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/text_detection_ppocr"
 SHIPPED = (
+    ShippedModel(
+        "photo2x",
+        "span-x2.onnx",
+        Asset(
+            f"{SPAN_FILES}/2x-spanx2-ch48.pth",
+            8942586,
+            "0b20caeea7af5507ec3bdc63ff5a141a28506279d2cfec909c417ecb308d3f93",
+        ),
+        "Apache-2.0",
+        2,
+        1,
+        None,
+    ),
+    ShippedModel(
+        "photo4x",
+        "span-x4.onnx",
+        Asset(
+            f"{SPAN_FILES}/4x-spanx4-ch48.pth",
+            9004922,
+            "c79e716b8eb24182c1d7fcc74fa10ae074bdb34fee7c6e67c73053ff5498c667",
+        ),
+        "Apache-2.0",
+        4,
+        1,
+        None,
+    ),
+    ShippedModel(
+        "textDetector",
+        "ppocr-text-mask.onnx",
+        Asset(
+            f"{ZOO}/text_detection_cn_ppocrv3_2023may.onnx",
+            2423490,
+            "03f550c6b406fda8bf54bd8327815f6c7e2edd98cea02348c93d879254366587",
+        ),
+        "Apache-2.0",
+        1,
+        32,
+        None,
+    ),
     ShippedModel(
         "deblock",
         "dejpeg-v2.onnx",
@@ -202,6 +251,12 @@ def notice(entries: dict[Role, Entry], upstream: dict[Role, str]) -> str:
     return "\n".join(
         [
             "# Third-party models\n",
+            "SPAN (Hongyuan Yu et al.): https://github.com/hongyuanyu/SPAN. "
+            "The export folds the 48-channel EMA convolutions from OpenModelDB.\n",
+            "PP-OCRv3 (PaddleOCR / OpenCV Zoo): https://github.com/opencv/opencv_zoo/"
+            "tree/main/models/text_detection_ppocr. "
+            "RGB input and a three-channel probability map are added on export. "
+            "Copyright (c) 2016 PaddlePaddle Authors. All Rights Reserved.\n",
             "| File | Source | License | SHA-256 | Upstream SHA-256 |",
             "|---|---|---|---|---|",
             *rows,
@@ -223,7 +278,11 @@ def export_models(models: Path, cache: Path) -> dict[Role, Entry]:
         source = download(model.upstream, cache)
         upstream[model.role] = sha256(source)
         shipped = models / model.file
-        if model.num_conv is None:
+        if model.role in ("photo2x", "photo4x"):
+            export_upscaler(Span(source, model.scale), shipped)
+        elif model.role == "textDetector":
+            export_detector(source, shipped)
+        elif model.num_conv is None:
             shutil.copyfile(source, shipped)
         else:
             network = load_upscaler(source, model.num_conv)

@@ -180,3 +180,37 @@ describe("runTiled progress and cancellation", () => {
 		await expect(run).rejects.toMatchObject({ name: "AbortError" });
 	});
 });
+
+it("runs only masked cells and blends their pixels into the existing photo", async () => {
+	let calls = 0;
+	const source = {
+		width: 4,
+		height: 2,
+		data: new Uint8ClampedArray(24).fill(200),
+	};
+	const target = { ...source, data: new Uint8ClampedArray(24).fill(20) };
+	const tileModel = {
+		scale: 1,
+		multipleOf: 1,
+		run: async (tile: RgbImage) => {
+			calls++;
+			return tile;
+		},
+	};
+	const out = await runTiled(
+		cv,
+		source,
+		tileModel,
+		{
+			core: 2,
+			pad: 1,
+			signal: new AbortController().signal,
+			onProgress: () => {},
+		},
+		{ target, mask: Uint8Array.from([0, 0, 255, 128, 0, 0, 255, 128]) },
+	);
+	expect(calls).toBe(1);
+	expect(out.data[0]).toBe(20);
+	expect(out.data[6]).toBe(200);
+	expect(out.data[9]).toBe(110);
+});

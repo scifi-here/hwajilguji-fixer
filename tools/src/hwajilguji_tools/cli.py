@@ -12,6 +12,7 @@ from hwajilguji_tools.corpus import (
 from hwajilguji_tools.evaluate import evaluate
 from hwajilguji_tools.export import export_models
 from hwajilguji_tools.fixtures import write_fixtures
+from hwajilguji_tools.text_regions import restore_text_regions
 
 REPO = Path(__file__).resolve().parents[3]
 DATA = REPO / "tools" / "data"
@@ -53,6 +54,14 @@ def main() -> None:
         "--limit", type=int, help="evaluate only the first N clean images"
     )
     commands.add_parser("fixtures", help="write browser test fixtures from the corpus")
+    text = commands.add_parser(
+        "text-regions",
+        help="compare a restored PNG with a bicubic copy at Korean words",
+    )
+    text.add_argument("source", type=Path)
+    text.add_argument("restored", type=Path)
+    text.add_argument("output", type=Path)
+    text.add_argument("--tessdata-dir", type=Path)
     args = parser.parse_args()
     match args.command:
         case "corpus":
@@ -68,5 +77,13 @@ def main() -> None:
             raise SystemExit(0 if passed else 1)
         case "fixtures":
             write_fixtures(load_manifest(MANIFEST), FIXTURES)
+        case "text-regions":
+            try:
+                count = restore_text_regions(
+                    args.source, args.restored, args.output, args.tessdata_dir
+                )
+            except (ValueError, OSError, RuntimeError) as error:
+                parser.exit(1, f"{error}\n")
+            print(f"{count} Korean word regions patched")
         case _:
             parser.error(f"unknown command {args.command}")

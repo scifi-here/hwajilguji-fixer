@@ -93,3 +93,29 @@ def test_shipped_model_corrects_input_error_at_odd_tile_sizes() -> None:
         )
         (actual,) = projected.run(None, feeds)
         np.testing.assert_allclose(actual, rgb + correction.numpy(), atol=1e-4)
+
+
+def test_fused_span_matches_three_convolutions_with_padded_bias() -> None:
+    from hwajilguji_tools.span import fold_convolution
+
+    generator = torch.Generator().manual_seed(43)
+    shapes = {
+        "conv.0": (4, 3, 1, 1),
+        "conv.1": (6, 4, 3, 3),
+        "conv.2": (5, 6, 1, 1),
+        "sk": (5, 3, 1, 1),
+    }
+    weights: dict[str, torch.Tensor] = {}
+    x = torch.rand(1, 3, 5, 7, generator=generator)
+    y = functional.pad(x, (1, 1, 1, 1))
+    for name, shape in shapes.items():
+        w = torch.rand(shape, generator=generator)
+        b = torch.rand(shape[0], generator=generator)
+        weights[f"unit.{name}.weight"] = w
+        weights[f"unit.{name}.bias"] = b
+        if name == "sk":
+            y = y + functional.conv2d(x, w, b)
+        else:
+            y = functional.conv2d(y, w, b)
+    conv = fold_convolution(weights, "unit")
+    torch.testing.assert_close(conv(x), y, atol=2e-5, rtol=1e-5)
